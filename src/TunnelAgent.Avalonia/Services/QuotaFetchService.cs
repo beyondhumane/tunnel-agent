@@ -639,7 +639,7 @@ public sealed class QuotaFetchService
         var extraMicros     = ProtoNumber(planStatus["overageBalanceMicros"]);
 
         var bars = new List<(string title, double usedPct, long? resetAt)>();
-        if (!hideDaily && dailyRemaining is { } d)
+        if (!hideDaily && (dailyRemaining ?? (dailyReset is not null ? 0 : null)) is { } d)
             bars.Add(("Daily", Math.Clamp(100 - d, 0, 100), dailyReset));
         if ((weeklyRemaining ?? (weeklyReset is not null ? 0 : null)) is { } w)
             bars.Add(("Weekly", Math.Clamp(100 - w, 0, 100), weeklyReset));
