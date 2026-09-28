@@ -53,6 +53,7 @@ public sealed class QuotaFetchService
         {
             "claude"         => FetchClaudeAsync(account, ct),
             "codex"          => FetchCodexAsync(account, ct),
+            "devin"          => FetchDevinAsync(account, ct),
             "antigravity"    => FetchAntigravityAsync(account, ct),
             "xai"            => FetchXaiAsync(account, ct),
             "cursor"         => FetchCursorAsync(account, ct),
@@ -544,6 +545,136 @@ public sealed class QuotaFetchService
                 doc["last_refresh"]  = DateTimeOffset.UtcNow.ToString("o");
                 File.WriteAllText(file, doc.ToJsonString());
                 return newToken;
+            }
+            catch { }
+        }
+        return null;
+    }
+
+    // ── Devin (Cognition) ─────────────────────────────────────────────────────
+    // POST https://server.codeium.com/exa.seat_management_pb.SeatManagementService/GetUserStatus
+    // Connect-RPC JSON; quota arrives as *remaining* percent, int64 fields as strings.
+
+    private const string DevinUserStatusUrl =
+        "https://server.codeium.com/exa.seat_management_pb.SeatManagementService/GetUserStatus";
+
+    private async Task FetchDevinAsync(ProviderAccountViewModel account, CancellationToken ct)
+    {
+        var token = ReadDevinSessionToken(account.Email);
+        if (token is null)
+        {
+            SetQuotaError(account, QuotaErrorTokenUnavailable("Devin"));
+            return;
+        }
+
+        try
+        {
+            var body = new JsonObject
+            {
+                ["metadata"] = new JsonObject
+                {
+                    ["apiKey"]           = token,
+                    ["ideName"]          = "devin",
+                    ["ideVersion"]       = "1.108.2",
+                    ["extensionName"]    = "devin",
+                    ["extensionVersion"] = "1.108.2",
+                    ["locale"]           = "en",
+                },
+            };
+            using var req = new HttpRequestMessage(HttpMethod.Post, DevinUserStatusUrl)
+            {
+                Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json"),
+            };
+            req.Headers.Add("Connect-Protocol-Version", "1");
+            using var resp = await Http.SendAsync(req, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                SetQuotaError(account, ToQuotaErrorMessage("Devin", resp.StatusCode));
+                return;
+            }
+
+            var status = ParseDevinUserStatus(JsonNode.Parse(await resp.Content.ReadAsStringAsync(ct)));
+            if (status is null)
+            {
+                SetQuotaError(account, QuotaErrorNoData("Devin"));
+                return;
+            }
+
+            var (plan, bars, extraBalance) = status.Value;
+            ApplyBarsFromPercent(account, bars);
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (!string.IsNullOrEmpty(plan)) account.PlanBadge = plan;
+                if (extraBalance is { } usd)
+                    account.QuotaBars.Add(new QuotaBarViewModel
+                    {
+                        Title   = $"Extra balance (${usd:0.00})",
+                        Used    = 0,
+                        ResetIn = "",
+                    });
+            });
+        }
+        catch (OperationCanceledException) { throw; }
+        catch { SetQuotaError(account, QuotaErrorRequestFailed("Devin")); }
+    }
+
+    /// <summary>
+    /// Maps a GetUserStatus JSON response to bars (used %, reset unix). Returns null when no quota data.
+    /// Mirrors openusage: flip remaining→used; a weekly reset without a percentage means 0% remaining
+    /// (proto3 JSON omits zeros); with daily hidden and no weekly data, the daily figure shows as Weekly.
+    /// </summary>
+    internal static (string? Plan, List<(string title, double usedPct, long? resetAt)> Bars, double? ExtraBalanceUsd)?
+        ParseDevinUserStatus(JsonNode? doc)
+    {
+        var planStatus = doc?["userStatus"]?["planStatus"];
+        if (planStatus is null) return null;
+        var planInfo  = planStatus["planInfo"];
+        var plan      = planInfo?["planName"]?.GetValue<string>()?.Trim();
+        var hideDaily = planInfo?["hideDailyQuota"]?.GetValue<bool>() == true;
+
+        var dailyRemaining  = ProtoNumber(planStatus["dailyQuotaRemainingPercent"]);
+        var weeklyRemaining = ProtoNumber(planStatus["weeklyQuotaRemainingPercent"]);
+        var dailyReset      = (long?)ProtoNumber(planStatus["dailyQuotaResetAtUnix"]);
+        var weeklyReset     = (long?)ProtoNumber(planStatus["weeklyQuotaResetAtUnix"]);
+        var extraMicros     = ProtoNumber(planStatus["overageBalanceMicros"]);
+
+        var bars = new List<(string title, double usedPct, long? resetAt)>();
+        if (!hideDaily && dailyRemaining is { } d)
+            bars.Add(("Daily", Math.Clamp(100 - d, 0, 100), dailyReset));
+        if ((weeklyRemaining ?? (weeklyReset is not null ? 0 : null)) is { } w)
+            bars.Add(("Weekly", Math.Clamp(100 - w, 0, 100), weeklyReset));
+        else if (hideDaily && dailyRemaining is { } hd)
+            bars.Add(("Weekly", Math.Clamp(100 - hd, 0, 100), weeklyReset));
+
+        double? extra = extraMicros is { } m ? Math.Max(0, m) / 1_000_000 : null;
+        if (bars.Count == 0 && extra is null) return null;
+        return (string.IsNullOrEmpty(plan) ? null : plan, bars, extra);
+    }
+
+    /// <summary>Reads a proto3-JSON number, which int64 fields encode as strings.</summary>
+    private static double? ProtoNumber(JsonNode? node)
+    {
+        if (node is not JsonValue v) return null;
+        if (v.TryGetValue<double>(out var n)) return n;
+        return v.TryGetValue<string>(out var s) && double.TryParse(s,
+            System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var p) ? p : null;
+    }
+
+    private string? ReadDevinSessionToken(string email)
+    {
+        if (!Directory.Exists(_authDir)) return null;
+        foreach (var file in Directory.GetFiles(_authDir, "devin-*.json"))
+        {
+            try
+            {
+                var doc = JsonNode.Parse(File.ReadAllText(file))?.AsObject();
+                if (doc is null) continue;
+                var fileEmail = doc["email"]?.GetValue<string>() ?? "";
+                if (!string.IsNullOrEmpty(email) &&
+                    !string.Equals(fileEmail, email, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var token = doc["session_token"]?.GetValue<string>() ?? doc["api_key"]?.GetValue<string>();
+                if (!string.IsNullOrEmpty(token)) return token;
             }
             catch { }
         }

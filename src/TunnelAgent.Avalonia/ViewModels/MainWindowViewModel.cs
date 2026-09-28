@@ -79,6 +79,7 @@ public partial class MainWindowViewModel : ViewModelBase, IAsyncDisposable
     {
         "claude",
         "codex",
+        "devin",
         "antigravity",
         "xai",
     };
@@ -607,11 +608,12 @@ SelectedSection is SectionKey.Logs;
         (SelectedQuotaAccount?.Id ?? SelectedQuotaProvider?.Id) switch
         {
             "codex"          => 1,
-            "antigravity"    => 2,
-            "xai"            => 3,
-            "cursor"         => 4,
-            "kiro"           => 5,
-            "trae"           => 6,
+            "devin"          => 2,
+            "antigravity"    => 3,
+            "xai"            => 4,
+            "cursor"         => 5,
+            "kiro"           => 6,
+            "trae"           => 7,
             _                => 0,
         };
     public string ActiveEngineName => FocusedConfigEngine.Definition.DisplayName;
