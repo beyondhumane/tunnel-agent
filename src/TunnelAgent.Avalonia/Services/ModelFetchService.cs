@@ -156,6 +156,7 @@ public sealed class ModelFetchService
         "moonshot"       => "Kimi",
         "alibaba"        => "Qwen",
         "xai"            => "xAI",
+        "cognition"      => "Devin",
         _                => Titlecase(ownedBy),
     };
 
@@ -166,6 +167,7 @@ public sealed class ModelFetchService
         "google"         => "OAuth",
         "antigravity"    => "OAuth",
         "xai"            => "OAuth",
+        "cognition"      => "OAuth",
         _                => "API Key",
     };
 

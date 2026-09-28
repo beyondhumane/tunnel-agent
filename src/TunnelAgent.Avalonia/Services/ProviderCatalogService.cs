@@ -26,6 +26,7 @@ public sealed class ProviderCatalogService : IDisposable
         new("kimi",           "Kimi",           "Moonshot AI via OAuth."),
         new("antigravity",    "Antigravity",    "Antigravity AI via OAuth."),
         new("xai",            "xAI",            "Grok models via xAI OAuth."),
+        new("devin",          "Devin",          "Cognition Devin via OAuth."),
     ];
 
     private static readonly ProviderMeta[] BuiltinApiKeyProviders =

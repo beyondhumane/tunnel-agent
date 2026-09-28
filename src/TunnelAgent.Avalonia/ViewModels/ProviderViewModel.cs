@@ -234,6 +234,7 @@ public partial class ProviderViewModel : ViewModelBase
         "gemini-cli"             => ("/Assets/providers/gemini.svg",      false),
         "antigravity"            => ("/Assets/providers/antigravity.svg", false),
         "xai" or "grok"          => ("/Assets/providers/xai.svg",         true),
+        "devin"                  => ("/Assets/providers/devin.svg",       false),
         "cursor"                 => ("/Assets/providers/cursor.svg",      true),
         "kiro"                   => ("/Assets/providers/kiro.svg",        false),
         "trae"                   => ("/Assets/providers/trae.svg",        false),

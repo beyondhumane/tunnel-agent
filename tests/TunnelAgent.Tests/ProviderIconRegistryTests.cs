@@ -17,6 +17,7 @@ public sealed class ProviderIconRegistryTests
     [InlineData("moonshot", PackIconSimpleIconsKind.OpenAi, "#000000")]
     [InlineData("kiro", PackIconSimpleIconsKind.OpenAi, "#9046FF")]
     [InlineData("trae", PackIconSimpleIconsKind.OpenAi, "#32F08C")]
+    [InlineData("devin", PackIconSimpleIconsKind.OpenAi, "#0294DE")]
     public void KnownProviders_ReturnExpectedIconAndColor(string providerId, PackIconSimpleIconsKind expectedIcon, string expectedColor)
     {
         var icon = ProviderIconRegistry.Get(providerId);
@@ -31,6 +32,7 @@ public sealed class ProviderIconRegistryTests
     [InlineData("antigravity")]
     [InlineData("kiro")]
     [InlineData("trae")]
+    [InlineData("devin")]
     public void ProvidersWithSvgPaths_HaveCustomIconData(string providerId)
     {
         var icon = ProviderIconRegistry.Get(providerId);
