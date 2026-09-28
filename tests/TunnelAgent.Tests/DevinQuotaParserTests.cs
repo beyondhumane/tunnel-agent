@@ -27,6 +27,23 @@ public sealed class DevinQuotaParserTests
     }
 
     [Fact]
+    public void ParseDevinUserStatus_DailyResetWithoutPercent_IsExhausted()
+    {
+        var doc = JsonNode.Parse("""
+            { "userStatus": { "planStatus": {
+                "planInfo": { "planName": "Core" },
+                "dailyQuotaResetAtUnix": "1790668800",
+                "weeklyQuotaRemainingPercent": 25,
+                "weeklyQuotaResetAtUnix": "1791100800"
+            } } }
+            """);
+
+        var (_, bars, _) = QuotaFetchService.ParseDevinUserStatus(doc)!.Value;
+
+        Assert.Equal([("Daily", 100d, (long?)1790668800), ("Weekly", 75d, (long?)1791100800)], bars);
+    }
+
+    [Fact]
     public void ParseDevinUserStatus_HiddenDaily_WeeklyResetWithoutPercent_IsExhausted()
     {
         var doc = JsonNode.Parse("""
