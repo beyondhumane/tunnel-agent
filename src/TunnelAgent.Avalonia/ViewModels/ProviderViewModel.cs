@@ -30,8 +30,14 @@ public partial class QuotaBarViewModel : ViewModelBase
     /// <summary>0–1 fraction consumed.</summary>
     [ObservableProperty] private double _used;
 
+    /// <summary>Non-percentage value (e.g. a USD balance). When set, replaces the "% used" label and hides the bar.</summary>
+    [ObservableProperty] private string? _valueLabel;
+
+    /// <summary>False for value-only rows (e.g. balances) that have no usage fraction.</summary>
+    public bool HasProgress => ValueLabel is null;
+
     /// <summary>Right-side label, e.g. "22% used".</summary>
-    public string UsedLabel => $"{Used * 100:0}% used";
+    public string UsedLabel => ValueLabel ?? $"{Used * 100:0}% used";
 
     public QuotaBarViewModel()
     {
@@ -39,6 +45,12 @@ public partial class QuotaBarViewModel : ViewModelBase
     }
 
     partial void OnUsedChanged(double value) => OnPropertyChanged(nameof(UsedLabel));
+
+    partial void OnValueLabelChanged(string? value)
+    {
+        OnPropertyChanged(nameof(UsedLabel));
+        OnPropertyChanged(nameof(HasProgress));
+    }
 
     private static string LocalizeResetIn(string value) => LocalizeValue(value);
 

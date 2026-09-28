@@ -608,9 +608,9 @@ public sealed class QuotaFetchService
                 if (extraBalance is { } usd)
                     account.QuotaBars.Add(new QuotaBarViewModel
                     {
-                        Title   = $"Extra balance (${usd:0.00})",
-                        Used    = 0,
-                        ResetIn = "",
+                        Title      = "Extra balance",
+                        ValueLabel = $"${usd:0.00}",
+                        ResetIn    = "",
                     });
             });
         }

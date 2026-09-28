@@ -172,7 +172,8 @@
                                                 <ProgressBar Minimum="0"
                                                              Maximum="1"
                                                              Value="{Binding Used}"
-                                                             Height="9" />
+                                                             Height="9"
+                                                             IsVisible="{Binding HasProgress}" />
                                                 <TextBlock Text="{Binding ResetIn}"
                                                            FontSize="10.5"
                                                            Foreground="{DynamicResource FgFaintBrush}"
