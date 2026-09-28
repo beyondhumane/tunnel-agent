@@ -104,6 +104,23 @@ public sealed class ViewModelTests
         Assert.Contains(nameof(QuotaBarViewModel.UsedLabel), changed);
     }
 
+    [Fact]
+    public void QuotaBarViewModel_ValueLabel_ReplacesPercentAndHidesProgress()
+    {
+        var vm = new QuotaBarViewModel { Title = "Extra balance" };
+        var changed = new List<string?>();
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        Assert.True(vm.HasProgress);
+
+        vm.ValueLabel = "$12.50";
+
+        Assert.Equal("$12.50", vm.UsedLabel);
+        Assert.False(vm.HasProgress);
+        Assert.Contains(nameof(QuotaBarViewModel.UsedLabel), changed);
+        Assert.Contains(nameof(QuotaBarViewModel.HasProgress), changed);
+    }
+
     [Theory]
     [InlineData("", "", "", false, "")]
     [InlineData("short", "", "Label", true, "Label")]

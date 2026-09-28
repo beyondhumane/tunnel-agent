@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- **Devin OAuth provider** (`OAuthService`, `OAuthTokenDetector`, `ProviderCatalogService`, `ProviderIconRegistry`, `ProviderViewModel`, `ModelFetchService`): connect Devin (Cognition) through CLIProxyAPI's `-devin-login` flow. Detects `devin-*.json` auth files, shows the Devin brand icon from [@lobehub/icons](https://lobehub.com/icons), and labels `cognition`-owned models as Devin/OAuth.
+- **Devin quota** (`QuotaFetchService`, `QuotaView`, `MainWindowViewModel`): new Devin tab after Codex showing daily/weekly quota, plan badge, and extra-usage balance via Devin's `GetUserStatus` Connect-RPC endpoint, using the CLIProxyAPI session token.
+
 ## [1.1.6] - 2026-08-26
 
 ### Added
