@@ -30,7 +30,7 @@
     <PackageReference Include="SkiaSharp.HarfBuzz" Version="4.152.1" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.152.1" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
-    <PackageReference Include="Velopack" Version="1.2.0" />
+    <PackageReference Include="Velopack" Version="1.2.158" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
     <PackageReference Include="YamlDotNet" Version="18.1.0" />
   </ItemGroup>
