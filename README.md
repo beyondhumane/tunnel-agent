@@ -44,7 +44,7 @@
 - 🔀 **Multi-Engine Control**: run and manage CLIProxyAPI, Perplexity, and 9Router from the same desktop app, with per-engine configuration, endpoint controls, and status
 - 🚀 **One-Click Server Management**: start and stop each local engine directly from the Providers view
 - 🔐 **Credential Storage**: secure handling for OAuth tokens, custom provider API keys, and file-based Perplexity session accounts stored under Tunnel Agent settings
-- 👥 **Provider Management**: connect Claude Code, OpenAI Codex, Gemini CLI, Kimi, Antigravity, xAI (Grok), Devin, and custom OpenAI-compatible providers through CLIProxyAPI, plus 120+ OAuth, API-key, and free providers through 9Router
+- 👥 **Provider Management**: connect Claude Code, OpenAI Codex, Gemini CLI, Kimi, Antigravity, xAI (Grok), Devin, Meta (Muse Spark), and custom OpenAI-compatible providers through CLIProxyAPI, plus 120+ OAuth, API-key, and free providers through 9Router
 - 🧠 **Perplexity WebUI Sessions**: add multiple Perplexity accounts, set a default session, reset accounts safely, and auto-install the Perplexity engine when needed
 - 🎚️ **Model Visibility**: browse available models grouped by connected provider or engine source, including Perplexity-backed model listings
 - 🔁 **Model Fallback**: create virtual models backed by ordered provider/model chains, automatically fail over when quota is exhausted, expose the virtual models through `/v1/models`, and cache the last working route for a configurable duration
@@ -118,6 +118,7 @@ Tunnel Agent now includes first-class support for the Perplexity WebUI Scraper e
 | Antigravity              | OAuth              |
 | xAI (Grok)               | OAuth              |
 | Devin (Cognition)        | OAuth              |
+| Meta (Muse Spark)        | OAuth              |
 | Custom OpenAI-compatible | API key + base URL |
 
 #### Perplexity WebUI Scraper

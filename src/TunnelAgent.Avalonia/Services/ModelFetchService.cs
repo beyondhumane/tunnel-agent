@@ -168,6 +168,7 @@ public sealed class ModelFetchService
         "antigravity"    => "OAuth",
         "xai"            => "OAuth",
         "cognition"      => "OAuth",
+        "meta"           => "OAuth",
         _                => "API Key",
     };
 

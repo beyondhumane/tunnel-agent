@@ -27,6 +27,7 @@ public sealed class ProviderCatalogService : IDisposable
         new("antigravity",    "Antigravity",    "Antigravity AI via OAuth."),
         new("xai",            "xAI",            "Grok models via xAI OAuth."),
         new("devin",          "Devin",          "Cognition Devin via OAuth."),
+        new("meta",           "Meta",           "Muse Spark models via Meta OAuth."),
     ];
 
     private static readonly ProviderMeta[] BuiltinApiKeyProviders =
@@ -229,12 +230,20 @@ public sealed class ProviderCatalogService : IDisposable
         // so keep the user's exact text instead of slugifying — only de-duplicate on collision.
         var baseName = name.Trim();
         if (string.IsNullOrEmpty(baseName)) baseName = "provider";
+        // Keeping the current id on edit never re-keys an existing provider (its routing stays put),
+        // even if it predates a built-in with the same id.
+        if (string.Equals(baseName, excludeSelfId, StringComparison.Ordinal)) return baseName;
         var id = baseName;
         var n = 2;
-        while (_settings.Current.Providers.Any(p => p.Id == id && !string.Equals(p.Id, excludeSelfId, StringComparison.Ordinal)))
+        while (IsBuiltinId(id)
+               || _settings.Current.Providers.Any(p => p.Id == id && !string.Equals(p.Id, excludeSelfId, StringComparison.Ordinal)))
             id = $"{baseName} {n++}";
         return id;
     }
+
+    private static bool IsBuiltinId(string id) =>
+        BuiltinOAuthProviders.Any(m => string.Equals(m.Id, id, StringComparison.OrdinalIgnoreCase))
+        || BuiltinApiKeyProviders.Any(m => string.Equals(m.Id, id, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Starts the OAuth login flow for the given provider.
@@ -308,17 +317,7 @@ public sealed class ProviderCatalogService : IDisposable
     }
 
     private static IEnumerable<string> EnumerateOAuthCredentialFiles(string authDir, string prefix, string? email = null)
-    {
-        if (!Directory.Exists(authDir)) yield break;
-
-        var pattern = email is null ? $"{prefix}-*.json" : $"{prefix}-{email}*.json";
-        foreach (var file in Directory.GetFiles(authDir, pattern))
-        {
-            if (Path.GetFileName(file).StartsWith("openai-compat-", StringComparison.OrdinalIgnoreCase))
-                continue;
-            yield return file;
-        }
-    }
+        => OAuthTokenDetector.GetTokenFiles(authDir, prefix, email);
 
     private static void BackupAndDeleteCredentialFile(string file, string reason)
     {
@@ -419,7 +418,9 @@ public sealed class ProviderCatalogService : IDisposable
         // 3. Custom OpenAI-compatible providers from settings
         foreach (var ps in _settings.Current.Providers.Where(p => p.Kind == ProviderKind.OpenAICompatibility && !string.IsNullOrEmpty(p.BaseUrl)))
         {
-            if (Providers.Any(p => p.Id == ps.Id)) continue; // skip if already added
+            // Skip duplicate custom entries only; a legacy custom provider whose id now matches a
+            // built-in (e.g. "meta") must stay visible so it can still be edited or removed.
+            if (Providers.Any(p => p.IsCustomProvider && p.Id == ps.Id)) continue;
 
             var vm = BuildCustomProviderViewModel(ps);
             WireEvents(vm);

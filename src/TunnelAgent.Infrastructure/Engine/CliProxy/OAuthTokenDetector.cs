@@ -36,6 +36,7 @@ public sealed class OAuthTokenDetector
             ["antigravity"]     = "antigravity",
             ["xai"]             = "xai",
             ["devin"]           = "devin",
+            ["meta"]            = "meta",
         };
 
     private readonly string _directory;
@@ -71,12 +72,9 @@ public sealed class OAuthTokenDetector
     public void SetDisabled(string providerId, string email, bool disabled)
     {
         if (!KnownProviders.TryGetValue(providerId, out var prefix)) return;
-        if (!Directory.Exists(_directory)) return;
 
-        foreach (var file in Directory.GetFiles(_directory, $"{prefix}-{email}*.json"))
+        foreach (var file in GetTokenFiles(_directory, prefix, email))
         {
-            if (Path.GetFileName(file).StartsWith("openai-compat-", StringComparison.OrdinalIgnoreCase))
-                continue;
             try
             {
                 var text = File.ReadAllText(file);
@@ -120,7 +118,33 @@ public sealed class OAuthTokenDetector
             StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Token files for a prefix, optionally filtered to one account. An account matches by
+    /// filename (<c>{prefix}-{email}*</c>) or by the JSON <c>email</c> field, since some
+    /// providers (e.g. Meta) sanitize the email in the filename.
+    /// </summary>
+    public static IEnumerable<string> GetTokenFiles(string directory, string prefix, string? email = null)
+    {
+        if (!Directory.Exists(directory)) yield break;
+
+        foreach (var file in Directory.GetFiles(directory, $"{prefix}-*.json"))
+        {
+            var name = Path.GetFileName(file);
+            if (name.StartsWith("openai-compat-", StringComparison.OrdinalIgnoreCase)) continue;
+            if (email is null
+                || name.StartsWith($"{prefix}-{email}", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(ReadEmail(file), email, StringComparison.OrdinalIgnoreCase))
+                yield return file;
+        }
+    }
+
     // ── private ──────────────────────────────────────────────────────────────
+
+    private static string? ReadEmail(string file)
+    {
+        try { return JsonNode.Parse(File.ReadAllText(file))?["email"]?.GetValue<string>(); }
+        catch { return null; }
+    }
 
     private static OAuthAccount? ParseAccount(string filePath, string providerId, string prefix)
     {
