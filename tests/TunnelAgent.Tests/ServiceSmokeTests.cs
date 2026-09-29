@@ -7,6 +7,7 @@ using TunnelAgent.Core.Engine;
 using TunnelAgent.Infrastructure.Engine.CliProxy;
 namespace TunnelAgent.Tests;
 
+[Collection("UserEnvironment")]
 public sealed class ServiceSmokeTests
 {
     [Fact]
