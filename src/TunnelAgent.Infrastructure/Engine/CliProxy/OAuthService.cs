@@ -47,6 +47,7 @@ public sealed class OAuthService : IDisposable
             ["kimi"]            = "kimi-login",
             ["antigravity"]     = "antigravity-login",
             ["xai"]             = "xai-login",
+            ["devin"]           = "devin-login",
         };
 
     public static bool IsOAuthProvider(string providerId) =>
@@ -190,6 +191,7 @@ public sealed class OAuthService : IDisposable
         "kimi"           => "Kimi",
         "antigravity"    => "Antigravity",
         "xai"            => "xAI",
+        "devin"          => "Devin",
         _                => providerId,
     };
 

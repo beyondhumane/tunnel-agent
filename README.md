@@ -44,7 +44,7 @@
 - 🔀 **Multi-Engine Control**: run and manage CLIProxyAPI, Perplexity, and 9Router from the same desktop app, with per-engine configuration, endpoint controls, and status
 - 🚀 **One-Click Server Management**: start and stop each local engine directly from the Providers view
 - 🔐 **Credential Storage**: secure handling for OAuth tokens, custom provider API keys, and file-based Perplexity session accounts stored under Tunnel Agent settings
-- 👥 **Provider Management**: connect Claude Code, OpenAI Codex, Gemini CLI, Kimi, Antigravity, xAI (Grok), and custom OpenAI-compatible providers
+- 👥 **Provider Management**: connect Claude Code, OpenAI Codex, Gemini CLI, Kimi, Antigravity, xAI (Grok), Devin, and custom OpenAI-compatible providers through CLIProxyAPI, plus 120+ OAuth, API-key, and free providers through 9Router
 - 🧠 **Perplexity WebUI Sessions**: add multiple Perplexity accounts, set a default session, reset accounts safely, and auto-install the Perplexity engine when needed
 - 🎚️ **Model Visibility**: browse available models grouped by connected provider or engine source, including Perplexity-backed model listings
 - 🔁 **Model Fallback**: create virtual models backed by ordered provider/model chains, automatically fail over when quota is exhausted, expose the virtual models through `/v1/models`, and cache the last working route for a configurable duration
@@ -99,7 +99,7 @@ Tunnel Agent now includes first-class support for the Perplexity WebUI Scraper e
 9Router is a third OpenAI-compatible local engine. Tunnel Agent installs it from the npm registry (a tarball, not GitHub release binaries) and requires **Node.js 18+** on the machine. You can:
 
 - install, start, and stop 9Router from the same UI
-- add API-key provider connections and OAuth for Claude, Gemini, and GitHub Copilot
+- add API-key, OAuth, browser-cookie, and no-auth provider connections from 9Router's provider registry
 - point coding agents at `http://127.0.0.1:20128/v1` using `TUNNEL_AGENT_9ROUTER_API_KEY`
 - open 9Router’s own dashboard for combos, routing, and other advanced features the desktop app does not replicate
 
@@ -107,16 +107,35 @@ Tunnel Agent now includes first-class support for the Perplexity WebUI Scraper e
 
 ### AI Providers
 
-| Provider                 | Auth method         |
-| ------------------------ | ------------------- |
-| Claude (Anthropic)       | OAuth               |
-| Gemini CLI (Google)      | OAuth               |
-| OpenAI Codex             | OAuth               |
-| Kimi (Moonshot)          | OAuth               |
-| Antigravity              | OAuth               |
-| xAI (Grok)               | OAuth               |
-| Perplexity               | WebUI session token |
-| Custom OpenAI-compatible | API key + base URL  |
+#### CLIProxyAPI
+
+| Provider                 | Auth method        |
+| ------------------------ | ------------------ |
+| Claude (Anthropic)       | OAuth              |
+| Gemini CLI (Google)      | OAuth              |
+| OpenAI Codex             | OAuth              |
+| Kimi (Moonshot)          | OAuth              |
+| Antigravity              | OAuth              |
+| xAI (Grok)               | OAuth              |
+| Devin (Cognition)        | OAuth              |
+| Custom OpenAI-compatible | API key + base URL |
+
+#### Perplexity WebUI Scraper
+
+| Provider   | Auth method         |
+| ---------- | ------------------- |
+| Perplexity | WebUI session token |
+
+#### 9Router
+
+9Router ships 120+ providers. Full list in [`NineRouterProviderCatalog.cs`](src/TunnelAgent.Avalonia/Services/NineRouterProviderCatalog.cs).
+
+| Auth method    | Providers                                                                                                                                                                                                                           |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| OAuth          | Antigravity, Claude Code, Cline, ClinePass, CodeBuddy, CodeBuddy CN, Cursor IDE, Gemini CLI, GitHub Copilot, GitLab Duo, Grok CLI, iFlow AI, Kilo Code, Kimchi, Kimi, Kiro AI, OpenAI Codex, Qoder, Trae, Windsurf, xAI (Grok), Zed |
+| API key        | 80+ providers, e.g. OpenAI, Anthropic, Gemini, DeepSeek, OpenRouter, Groq, Mistral, Cerebras, Fireworks AI, NVIDIA NIM, Azure OpenAI                                                                                                |
+| Browser cookie | Grok Web, Perplexity Web                                                                                                                                                                                                            |
+| No auth        | OpenCode Free, Devin CLI, MiMo Code Free, Vertex AI, Local Device, and local TTS/search services                                                                                                                                    |
 
 ### IDE Quota Tracking (Monitor Only)
 

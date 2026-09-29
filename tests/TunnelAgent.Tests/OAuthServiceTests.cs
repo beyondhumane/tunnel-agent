@@ -10,6 +10,7 @@ public sealed class OAuthServiceTests
     [InlineData("codex", true)]
     [InlineData("kimi", true)]
     [InlineData("antigravity", true)]
+    [InlineData("devin", true)]
     [InlineData("local-ai", false)]
     [InlineData("unknown", false)]
     [InlineData("", false)]

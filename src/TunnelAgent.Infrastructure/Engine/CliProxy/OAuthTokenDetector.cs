@@ -35,6 +35,7 @@ public sealed class OAuthTokenDetector
             ["kimi"]            = "kimi",
             ["antigravity"]     = "antigravity",
             ["xai"]             = "xai",
+            ["devin"]           = "devin",
         };
 
     private readonly string _directory;
