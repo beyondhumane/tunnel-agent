@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.1.7] - 2026-09-29
+
 ### Added
 
 - **Devin OAuth provider** (`OAuthService`, `OAuthTokenDetector`, `ProviderCatalogService`, `ProviderIconRegistry`, `ProviderViewModel`, `ModelFetchService`): connect Devin (Cognition) through CLIProxyAPI's `-devin-login` flow. Detects `devin-*.json` auth files, shows the Devin brand icon from [@lobehub/icons](https://lobehub.com/icons), and labels `cognition`-owned models as Devin/OAuth.
@@ -1059,6 +1061,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Engine always reads version from binary at startup (never trusts cached value)
 - Update notification triggers reactively from `StateChanged` rather than at a fixed startup point
 
+[1.1.7]: https://github.com/Villoh/tunnel-agent/compare/v1.1.6...v1.1.7
 [1.1.6]: https://github.com/Villoh/tunnel-agent/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/Villoh/tunnel-agent/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/Villoh/tunnel-agent/compare/v1.1.3...v1.1.4
