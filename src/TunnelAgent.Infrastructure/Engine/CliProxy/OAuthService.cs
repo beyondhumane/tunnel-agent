@@ -48,6 +48,7 @@ public sealed class OAuthService : IDisposable
             ["antigravity"]     = "antigravity-login",
             ["xai"]             = "xai-login",
             ["devin"]           = "devin-login",
+            ["meta"]            = "meta-login",
         };
 
     public static bool IsOAuthProvider(string providerId) =>
@@ -192,6 +193,7 @@ public sealed class OAuthService : IDisposable
         "antigravity"    => "Antigravity",
         "xai"            => "xAI",
         "devin"          => "Devin",
+        "meta"           => "Meta",
         _                => providerId,
     };
 

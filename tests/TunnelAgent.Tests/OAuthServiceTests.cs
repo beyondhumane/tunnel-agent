@@ -11,6 +11,7 @@ public sealed class OAuthServiceTests
     [InlineData("kimi", true)]
     [InlineData("antigravity", true)]
     [InlineData("devin", true)]
+    [InlineData("meta", true)]
     [InlineData("local-ai", false)]
     [InlineData("unknown", false)]
     [InlineData("", false)]

@@ -250,6 +250,7 @@ public partial class ProviderViewModel : ViewModelBase
         "cursor"                 => ("/Assets/providers/cursor.svg",      true),
         "kiro"                   => ("/Assets/providers/kiro.svg",        false),
         "trae"                   => ("/Assets/providers/trae.svg",        false),
+        "meta"                   => ("/Assets/providers/meta.svg",        false),
         _                        => null,
     };
 

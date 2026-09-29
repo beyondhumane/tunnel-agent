@@ -74,6 +74,50 @@ openai-compatibility:
     }
 
     [Fact]
+    public async Task AddCustomProviderAsync_BuiltinName_GetsDistinctId()
+    {
+        using var temp = new TestTempDirectory();
+        var authDir = temp.File("auth");
+        var settings = new SettingsService(temp.File("settings.json"));
+        await settings.LoadAsync();
+        var config = new ConfigService(settings, temp.File("proxy-config.yaml"), authDir);
+        using var catalog = new ProviderCatalogService(settings, config, authDir);
+        await catalog.InitializeAsync();
+
+        await catalog.AddCustomProviderAsync("meta", "https://private.example/v1", "sk-x");
+
+        Assert.Contains(catalog.Providers, p => p.Id == "meta" && p.IsOAuth);
+        Assert.Contains(catalog.Providers, p => p.Id == "meta 2" && p.IsCustomProvider);
+    }
+
+    [Fact]
+    public async Task InitializeAsync_LegacyCustomProviderWithBuiltinId_StaysVisible()
+    {
+        using var temp = new TestTempDirectory();
+        var authDir = temp.File("auth");
+        var settings = new SettingsService(temp.File("settings.json"));
+        await settings.LoadAsync();
+        var config = new ConfigService(settings, temp.File("proxy-config.yaml"), authDir);
+        await File.WriteAllTextAsync(config.ConfigPath, """
+host: "127.0.0.1"
+port: 8317
+auth-dir: "auth"
+openai-compatibility:
+  - name: meta
+    base-url: "https://private.example/v1"
+    api-key-entries:
+      - api-key: "test-key"
+""");
+        using var catalog = new ProviderCatalogService(settings, config, authDir);
+
+        await catalog.InitializeAsync();
+
+        Assert.Contains(catalog.Providers, p => p.Id == "meta" && p.IsOAuth);
+        var custom = Assert.Single(catalog.Providers, p => p.Id == "meta" && p.IsCustomProvider);
+        Assert.Equal("test-key", Assert.Single(custom.Accounts).ApiKey);
+    }
+
+    [Fact]
     public async Task UpdateCustomProviderModelsAsync_PersistsModelsAndRefreshesProvider()
     {
         using var temp = new TestTempDirectory();

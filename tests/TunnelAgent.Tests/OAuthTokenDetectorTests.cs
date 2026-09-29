@@ -76,6 +76,26 @@ public sealed class OAuthTokenDetectorTests
     }
 
     [Fact]
+    public void SetDisabled_MetaSanitizedFilename_MatchesByJsonEmail()
+    {
+        // CLIProxyAPI writes meta-{sanitized-email}-{hash}.json ('@' becomes '_').
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(temp.File("meta-user_example.com-0123456789abcdef.json"), new JsonObject
+        {
+            ["type"] = "meta",
+            ["access_token"] = "token",
+            ["email"] = "user@example.com"
+        }.ToJsonString());
+        var detector = new OAuthTokenDetector(temp.Path);
+
+        detector.SetDisabled("meta", "user@example.com", true);
+
+        var account = Assert.Single(detector.GetAccounts()["meta"]);
+        Assert.Equal("user@example.com", account.Email);
+        Assert.True(account.IsDisabled);
+    }
+
+    [Fact]
     public void GetConnectedProviderIds_OnlyReturnsProvidersWithActiveAccounts()
     {
         using var temp = new TestTempDirectory();
