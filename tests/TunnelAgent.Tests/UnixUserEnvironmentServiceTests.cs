@@ -204,6 +204,48 @@ public sealed class UnixUserEnvironmentServiceTests : IDisposable
     }
 
     [Fact]
+    public void EnsureProfileHook_WhenBlockUnterminated_PreservesFollowingLines()
+    {
+        File.WriteAllText(ProfileFile, "before\n# BEGIN TunnelAgent\nexport USER_VAR=keep\nafter\n");
+
+        Build().EnsureProfileHookCore();
+
+        var content = File.ReadAllText(ProfileFile);
+        Assert.Contains(EnvFile, content);
+        Assert.Contains("export USER_VAR=keep", content);
+        Assert.Contains("after", content);
+        Assert.Equal(1, CountOccurrences(content, "# BEGIN TunnelAgent"));
+    }
+
+    [Fact]
+    public void EnsureProfileHook_WhenDuplicateBlocks_KeepsSingleBlockAtFirstPosition()
+    {
+        const string block = "# BEGIN TunnelAgent\n[ -f \"old\" ] && . \"old\"\n# END TunnelAgent\n";
+        File.WriteAllText(ProfileFile, "before\n" + block + "middle\n" + block + "after\n");
+
+        Build().EnsureProfileHookCore();
+
+        var content = File.ReadAllText(ProfileFile);
+        Assert.Equal(1, CountOccurrences(content, "# BEGIN TunnelAgent"));
+        Assert.DoesNotContain("\"old\"", content);
+        Assert.True(content.IndexOf(EnvFile, StringComparison.Ordinal) < content.IndexOf("middle", StringComparison.Ordinal));
+        Assert.Contains("after", content);
+    }
+
+    [Fact]
+    public void EnsureProfileHook_WhenHookCurrent_DoesNotRewriteProfile()
+    {
+        var svc = Build();
+        svc.EnsureProfileHookCore();
+        var stamp = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(ProfileFile, stamp);
+
+        svc.EnsureProfileHookCore();
+
+        Assert.Equal(stamp, File.GetLastWriteTimeUtc(ProfileFile));
+    }
+
+    [Fact]
     public void EnsureProfileHook_WhenProfileHasNoTrailingNewline_InsertsNewlineFirst()
     {
         File.WriteAllText(ProfileFile, "# no newline at end");

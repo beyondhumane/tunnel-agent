@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.Versioning;
 using System.Security;
 using System.Text;
@@ -19,7 +20,7 @@ namespace TunnelAgent.Infrastructure.Services;
 /// <list type="bullet">
 ///   <item>
 ///     <b>App-owned store</b> (always, both OS): a shell-sourceable file with
-///     <c>export KEY=VALUE</c> lines at <c>$XDG_CONFIG_HOME/tunnelagent/environment</c>
+///     <c>export KEY=VALUE</c> lines at <c>$XDG_CONFIG_HOME/TunnelAgent/environment</c>
 ///     (Linux) or <c>~/Library/Application Support/tunnelagent/environment</c> (macOS).
 ///     Read at startup via <see cref="SeedProcessEnvironment"/> to seed the process env.
 ///   </item>
@@ -254,9 +255,16 @@ internal sealed class UnixUserEnvironmentService : IUserEnvironmentService
                     continue;
                 }
 
-                output.AddRange(hook);
+                var end = Array.FindIndex(lines, i + 1, l => l.TrimEnd() == ProfileBlockEnd);
+                if (end < 0 && replaced)
+                {
+                    output.Add(lines[i]);
+                    continue;
+                }
+
+                if (!replaced) output.AddRange(hook);
                 replaced = true;
-                while (i + 1 < lines.Length && lines[++i].TrimEnd() != ProfileBlockEnd) { }
+                if (end >= 0) i = end;
             }
 
             if (!replaced)
@@ -264,6 +272,8 @@ internal sealed class UnixUserEnvironmentService : IUserEnvironmentService
                 if (output.Count > 0 && !string.IsNullOrWhiteSpace(output[^1])) output.Add(string.Empty);
                 output.AddRange(hook);
             }
+
+            if (File.Exists(_profile) && output.SequenceEqual(lines)) return;
 
             File.WriteAllLines(_profile, output,
                 new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
