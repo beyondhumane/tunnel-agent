@@ -154,6 +154,20 @@ public sealed class UnixUserEnvironmentServiceTests : IDisposable
     }
 
     [Fact]
+    public void EnsureProfileHook_UpdatesExistingBlockPath()
+    {
+        File.WriteAllText(ProfileFile,
+            "# BEGIN TunnelAgent\n[ -f \"old/path/environment\" ] && . \"old/path/environment\"\n# END TunnelAgent\n");
+
+        Build().EnsureProfileHookCore();
+
+        var content = File.ReadAllText(ProfileFile);
+        Assert.Contains(EnvFile, content);
+        Assert.DoesNotContain("old/path/environment", content);
+        Assert.Equal(1, CountOccurrences(content, "# BEGIN TunnelAgent"));
+    }
+
+    [Fact]
     public void EnsureProfileHook_WhenProfileHasNoTrailingNewline_InsertsNewlineFirst()
     {
         File.WriteAllText(ProfileFile, "# no newline at end");

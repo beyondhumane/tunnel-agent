@@ -50,9 +50,7 @@ internal sealed class UnixUserEnvironmentService : IUserEnvironmentService
     // Production constructor — uses real OS paths.
     internal UnixUserEnvironmentService()
         : this(
-            appEnvFile: Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "tunnelagent", "environment"),
+            appEnvFile: GetAppEnvFilePath(),
             profile: Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 ".profile"),
@@ -60,6 +58,30 @@ internal sealed class UnixUserEnvironmentService : IUserEnvironmentService
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 "Library", "LaunchAgents", $"{LaunchAgentLabel}.plist"))
     { }
+
+    private static string GetAppEnvFilePath()
+    {
+        var configDir = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var appDir = OperatingSystem.IsLinux()
+            ? Path.Combine(configDir, "TunnelAgent")
+            : Path.Combine(configDir, "tunnelagent");
+        var envFile = Path.Combine(appDir, "environment");
+
+        // Migrate Linux env store from old lowercase directory into app settings directory.
+        if (OperatingSystem.IsLinux())
+        {
+            var legacyFile = Path.Combine(configDir, "tunnelagent", "environment");
+            if (!File.Exists(envFile) && File.Exists(legacyFile))
+            {
+                Directory.CreateDirectory(appDir);
+                File.Move(legacyFile, envFile);
+                try { Directory.Delete(Path.GetDirectoryName(legacyFile)!); }
+                catch { }
+            }
+        }
+
+        return envFile;
+    }
 
     // Testable constructor — caller supplies isolated temp paths.
     internal UnixUserEnvironmentService(string appEnvFile, string profile, string launchAgentPlist)
@@ -190,7 +212,20 @@ internal sealed class UnixUserEnvironmentService : IUserEnvironmentService
         lock (_fileLock)
         {
             var content = File.Exists(_profile) ? File.ReadAllText(_profile) : string.Empty;
-            if (content.Contains(ProfileBlockBegin)) return;
+            var hadBlock = content.Contains(ProfileBlockBegin);
+            if (hadBlock)
+            {
+                var lines = File.ReadAllLines(_profile);
+                var filtered = new List<string>();
+                bool inBlock = false;
+                foreach (var line in lines)
+                {
+                    if (line.TrimEnd() == ProfileBlockBegin) { inBlock = true; continue; }
+                    if (line.TrimEnd() == ProfileBlockEnd) { inBlock = false; continue; }
+                    if (!inBlock) filtered.Add(line);
+                }
+                content = string.Join(Environment.NewLine, filtered);
+            }
 
             var hook = new StringBuilder();
             if (content.Length > 0 && !content.EndsWith('\n'))
@@ -199,8 +234,12 @@ internal sealed class UnixUserEnvironmentService : IUserEnvironmentService
             hook.AppendLine($"[ -f \"{_appEnvFile}\" ] && . \"{_appEnvFile}\"");
             hook.AppendLine(ProfileBlockEnd);
 
-            File.AppendAllText(_profile, hook.ToString(),
-                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            if (hadBlock)
+                File.WriteAllText(_profile, content + hook,
+                    new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            else
+                File.AppendAllText(_profile, hook.ToString(),
+                    new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         }
     }
 
