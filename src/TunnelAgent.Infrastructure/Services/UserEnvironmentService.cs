@@ -43,12 +43,7 @@ public static class UserEnvironmentService
     public static void Initialize()
     {
         if (OperatingSystem.IsWindows()) return;
-        // Warm up the store: reading every persisted key via Get() propagates
-        // its value into EnvironmentVariableTarget.Process via UnixUserEnvironmentService.
-        // We rely on the fact that UnixUserEnvironmentService.Get reads the app store
-        // first; by calling Set for each found value we ensure the process env is seeded.
-        var unix = (UnixUserEnvironmentService)_impl;
-        unix.SeedProcessEnvironment();
+        ((UnixUserEnvironmentService)_impl).Initialize();
     }
 
     public static string? Get(string name) => _impl.Get(name);

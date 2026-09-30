@@ -26,6 +26,23 @@ public sealed class UnixUserEnvironmentServiceTests : IDisposable
     // ── App-owned store ───────────────────────────────────────────────────────
 
     [Fact]
+    public void LinuxMigration_MovesLegacyStoreAndRestrictsPermissions()
+    {
+        var configDir = _tmp.File("config");
+        var legacyFile = Path.Combine(configDir, "tunnelagent", "environment");
+        Directory.CreateDirectory(Path.GetDirectoryName(legacyFile)!);
+        File.WriteAllText(legacyFile, "export KEY=value\n");
+
+        var migratedFile = UnixUserEnvironmentService.GetLinuxAppEnvFilePath(configDir);
+
+        Assert.Equal(Path.Combine(configDir, "TunnelAgent", "environment"), migratedFile);
+        Assert.Equal("export KEY=value\n", File.ReadAllText(migratedFile));
+        Assert.False(File.Exists(legacyFile));
+        if (!OperatingSystem.IsWindows())
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(migratedFile));
+    }
+
+    [Fact]
     public void Get_WhenStoreEmpty_ReturnsNull()
     {
         var svc = Build();
@@ -132,6 +149,23 @@ public sealed class UnixUserEnvironmentServiceTests : IDisposable
     }
 
     [Fact]
+    public void Initialize_RepairsExistingProfileHookWithStoredVariables()
+    {
+        if (!OperatingSystem.IsLinux()) return;
+        var svc = Build();
+        svc.Set("STARTUP_HOOK_TEST", "value");
+        File.WriteAllText(ProfileFile,
+            "# BEGIN TunnelAgent\n[ -f \"old/path/environment\" ] && . \"old/path/environment\"\n# END TunnelAgent\n");
+
+        svc.Initialize();
+
+        var content = File.ReadAllText(ProfileFile);
+        Assert.Contains(EnvFile, content);
+        Assert.DoesNotContain("old/path/environment", content);
+        Environment.SetEnvironmentVariable("STARTUP_HOOK_TEST", null);
+    }
+
+    [Fact]
     public void EnsureProfileHook_WhenProfileExists_AppendsBlock()
     {
         File.WriteAllText(ProfileFile, "# existing content\n");
@@ -157,7 +191,7 @@ public sealed class UnixUserEnvironmentServiceTests : IDisposable
     public void EnsureProfileHook_UpdatesExistingBlockPath()
     {
         File.WriteAllText(ProfileFile,
-            "# BEGIN TunnelAgent\n[ -f \"old/path/environment\" ] && . \"old/path/environment\"\n# END TunnelAgent\n");
+            "before\n# BEGIN TunnelAgent\n[ -f \"old/path/environment\" ] && . \"old/path/environment\"\n# END TunnelAgent\nafter\n");
 
         Build().EnsureProfileHookCore();
 
@@ -165,6 +199,8 @@ public sealed class UnixUserEnvironmentServiceTests : IDisposable
         Assert.Contains(EnvFile, content);
         Assert.DoesNotContain("old/path/environment", content);
         Assert.Equal(1, CountOccurrences(content, "# BEGIN TunnelAgent"));
+        Assert.True(content.IndexOf("before", StringComparison.Ordinal) < content.IndexOf(EnvFile, StringComparison.Ordinal));
+        Assert.True(content.IndexOf(EnvFile, StringComparison.Ordinal) < content.IndexOf("after", StringComparison.Ordinal));
     }
 
     [Fact]

@@ -62,25 +62,40 @@ internal sealed class UnixUserEnvironmentService : IUserEnvironmentService
     private static string GetAppEnvFilePath()
     {
         var configDir = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var appDir = OperatingSystem.IsLinux()
-            ? Path.Combine(configDir, "TunnelAgent")
-            : Path.Combine(configDir, "tunnelagent");
-        var envFile = Path.Combine(appDir, "environment");
-
-        // Migrate Linux env store from old lowercase directory into app settings directory.
         if (OperatingSystem.IsLinux())
-        {
-            var legacyFile = Path.Combine(configDir, "tunnelagent", "environment");
-            if (!File.Exists(envFile) && File.Exists(legacyFile))
-            {
-                Directory.CreateDirectory(appDir);
-                File.Move(legacyFile, envFile);
-                try { Directory.Delete(Path.GetDirectoryName(legacyFile)!); }
-                catch { }
-            }
-        }
+            return GetLinuxAppEnvFilePath(configDir);
 
-        return envFile;
+        return Path.Combine(configDir, "tunnelagent", "environment");
+    }
+
+    internal static string GetLinuxAppEnvFilePath(string configDir)
+    {
+        var appDir = Path.Combine(configDir, "TunnelAgent");
+        var envFile = Path.Combine(appDir, "environment");
+        var legacyFile = Path.Combine(configDir, "tunnelagent", "environment");
+
+        if (File.Exists(envFile))
+        {
+            TryChmod600(envFile);
+            return envFile;
+        }
+        if (!File.Exists(legacyFile)) return envFile;
+
+        try
+        {
+            Directory.CreateDirectory(appDir);
+            File.Move(legacyFile, envFile);
+            TryChmod600(envFile);
+            try { Directory.Delete(Path.GetDirectoryName(legacyFile)!); }
+            catch { }
+            return envFile;
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+
+        // Keep working from legacy store if migration cannot write to canonical directory.
+        TryChmod600(legacyFile);
+        return legacyFile;
     }
 
     // Testable constructor — caller supplies isolated temp paths.
@@ -101,6 +116,16 @@ internal sealed class UnixUserEnvironmentService : IUserEnvironmentService
     {
         foreach (var (k, v) in ReadAppStore())
             Environment.SetEnvironmentVariable(k, v, EnvironmentVariableTarget.Process);
+    }
+
+    internal void Initialize()
+    {
+        SeedProcessEnvironment();
+        if (!OperatingSystem.IsLinux() || ReadAppStore().Count == 0) return;
+
+        try { EnsureProfileHookCore(); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     // ── IUserEnvironmentService ───────────────────────────────────────────────
@@ -211,35 +236,37 @@ internal sealed class UnixUserEnvironmentService : IUserEnvironmentService
     {
         lock (_fileLock)
         {
-            var content = File.Exists(_profile) ? File.ReadAllText(_profile) : string.Empty;
-            var hadBlock = content.Contains(ProfileBlockBegin);
-            if (hadBlock)
+            var lines = File.Exists(_profile) ? File.ReadAllLines(_profile) : Array.Empty<string>();
+            var hook = new[]
             {
-                var lines = File.ReadAllLines(_profile);
-                var filtered = new List<string>();
-                bool inBlock = false;
-                foreach (var line in lines)
+                ProfileBlockBegin,
+                $"[ -f \"{_appEnvFile}\" ] && . \"{_appEnvFile}\"",
+                ProfileBlockEnd
+            };
+            var output = new List<string>();
+            bool replaced = false;
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].TrimEnd() != ProfileBlockBegin)
                 {
-                    if (line.TrimEnd() == ProfileBlockBegin) { inBlock = true; continue; }
-                    if (line.TrimEnd() == ProfileBlockEnd) { inBlock = false; continue; }
-                    if (!inBlock) filtered.Add(line);
+                    output.Add(lines[i]);
+                    continue;
                 }
-                content = string.Join(Environment.NewLine, filtered);
+
+                output.AddRange(hook);
+                replaced = true;
+                while (i + 1 < lines.Length && lines[++i].TrimEnd() != ProfileBlockEnd) { }
             }
 
-            var hook = new StringBuilder();
-            if (content.Length > 0 && !content.EndsWith('\n'))
-                hook.AppendLine();
-            hook.AppendLine(ProfileBlockBegin);
-            hook.AppendLine($"[ -f \"{_appEnvFile}\" ] && . \"{_appEnvFile}\"");
-            hook.AppendLine(ProfileBlockEnd);
+            if (!replaced)
+            {
+                if (output.Count > 0 && !string.IsNullOrWhiteSpace(output[^1])) output.Add(string.Empty);
+                output.AddRange(hook);
+            }
 
-            if (hadBlock)
-                File.WriteAllText(_profile, content + hook,
-                    new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-            else
-                File.AppendAllText(_profile, hook.ToString(),
-                    new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+            File.WriteAllLines(_profile, output,
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         }
     }
 
