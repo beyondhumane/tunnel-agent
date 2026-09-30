@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Mail;
@@ -4205,7 +4206,9 @@ SelectedSection is SectionKey.Logs;
         if (!string.IsNullOrWhiteSpace(defKey) && !keys.Contains(defKey, StringComparer.Ordinal))
         {
             keys.Add(defKey);
-            await _configService.WriteApiKeysToConfigAsync(keys);
+            try { await _configService.WriteApiKeysToConfigAsync(keys); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
         // If env var is empty but yaml has keys, adopt the first as default.
         // The yaml is the source of truth for accepted keys, so without this the

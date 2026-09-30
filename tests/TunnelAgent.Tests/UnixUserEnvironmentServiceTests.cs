@@ -26,6 +26,23 @@ public sealed class UnixUserEnvironmentServiceTests : IDisposable
     // ── App-owned store ───────────────────────────────────────────────────────
 
     [Fact]
+    public void LinuxMigration_MovesLegacyStoreAndRestrictsPermissions()
+    {
+        var configDir = _tmp.File("config");
+        var legacyFile = Path.Combine(configDir, "tunnelagent", "environment");
+        Directory.CreateDirectory(Path.GetDirectoryName(legacyFile)!);
+        File.WriteAllText(legacyFile, "export KEY=value\n");
+
+        var migratedFile = UnixUserEnvironmentService.GetLinuxAppEnvFilePath(configDir);
+
+        Assert.Equal(Path.Combine(configDir, "TunnelAgent", "environment"), migratedFile);
+        Assert.Equal("export KEY=value\n", File.ReadAllText(migratedFile));
+        Assert.False(File.Exists(legacyFile));
+        if (!OperatingSystem.IsWindows())
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(migratedFile));
+    }
+
+    [Fact]
     public void Get_WhenStoreEmpty_ReturnsNull()
     {
         var svc = Build();
@@ -132,6 +149,23 @@ public sealed class UnixUserEnvironmentServiceTests : IDisposable
     }
 
     [Fact]
+    public void Initialize_RepairsExistingProfileHookWithStoredVariables()
+    {
+        if (!OperatingSystem.IsLinux()) return;
+        var svc = Build();
+        svc.Set("STARTUP_HOOK_TEST", "value");
+        File.WriteAllText(ProfileFile,
+            "# BEGIN TunnelAgent\n[ -f \"old/path/environment\" ] && . \"old/path/environment\"\n# END TunnelAgent\n");
+
+        svc.Initialize();
+
+        var content = File.ReadAllText(ProfileFile);
+        Assert.Contains(EnvFile, content);
+        Assert.DoesNotContain("old/path/environment", content);
+        Environment.SetEnvironmentVariable("STARTUP_HOOK_TEST", null);
+    }
+
+    [Fact]
     public void EnsureProfileHook_WhenProfileExists_AppendsBlock()
     {
         File.WriteAllText(ProfileFile, "# existing content\n");
@@ -151,6 +185,64 @@ public sealed class UnixUserEnvironmentServiceTests : IDisposable
         svc.EnsureProfileHookCore();
 
         Assert.Equal(1, CountOccurrences(File.ReadAllText(ProfileFile), "# BEGIN TunnelAgent"));
+    }
+
+    [Fact]
+    public void EnsureProfileHook_UpdatesExistingBlockPath()
+    {
+        File.WriteAllText(ProfileFile,
+            "before\n# BEGIN TunnelAgent\n[ -f \"old/path/environment\" ] && . \"old/path/environment\"\n# END TunnelAgent\nafter\n");
+
+        Build().EnsureProfileHookCore();
+
+        var content = File.ReadAllText(ProfileFile);
+        Assert.Contains(EnvFile, content);
+        Assert.DoesNotContain("old/path/environment", content);
+        Assert.Equal(1, CountOccurrences(content, "# BEGIN TunnelAgent"));
+        Assert.True(content.IndexOf("before", StringComparison.Ordinal) < content.IndexOf(EnvFile, StringComparison.Ordinal));
+        Assert.True(content.IndexOf(EnvFile, StringComparison.Ordinal) < content.IndexOf("after", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void EnsureProfileHook_WhenBlockUnterminated_PreservesFollowingLines()
+    {
+        File.WriteAllText(ProfileFile, "before\n# BEGIN TunnelAgent\nexport USER_VAR=keep\nafter\n");
+
+        Build().EnsureProfileHookCore();
+
+        var content = File.ReadAllText(ProfileFile);
+        Assert.Contains(EnvFile, content);
+        Assert.Contains("export USER_VAR=keep", content);
+        Assert.Contains("after", content);
+        Assert.Equal(1, CountOccurrences(content, "# BEGIN TunnelAgent"));
+    }
+
+    [Fact]
+    public void EnsureProfileHook_WhenDuplicateBlocks_KeepsSingleBlockAtFirstPosition()
+    {
+        const string block = "# BEGIN TunnelAgent\n[ -f \"old\" ] && . \"old\"\n# END TunnelAgent\n";
+        File.WriteAllText(ProfileFile, "before\n" + block + "middle\n" + block + "after\n");
+
+        Build().EnsureProfileHookCore();
+
+        var content = File.ReadAllText(ProfileFile);
+        Assert.Equal(1, CountOccurrences(content, "# BEGIN TunnelAgent"));
+        Assert.DoesNotContain("\"old\"", content);
+        Assert.True(content.IndexOf(EnvFile, StringComparison.Ordinal) < content.IndexOf("middle", StringComparison.Ordinal));
+        Assert.Contains("after", content);
+    }
+
+    [Fact]
+    public void EnsureProfileHook_WhenHookCurrent_DoesNotRewriteProfile()
+    {
+        var svc = Build();
+        svc.EnsureProfileHookCore();
+        var stamp = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(ProfileFile, stamp);
+
+        svc.EnsureProfileHookCore();
+
+        Assert.Equal(stamp, File.GetLastWriteTimeUtc(ProfileFile));
     }
 
     [Fact]

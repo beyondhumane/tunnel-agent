@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.Versioning;
 using System.Security;
 using System.Text;
@@ -19,7 +20,7 @@ namespace TunnelAgent.Infrastructure.Services;
 /// <list type="bullet">
 ///   <item>
 ///     <b>App-owned store</b> (always, both OS): a shell-sourceable file with
-///     <c>export KEY=VALUE</c> lines at <c>$XDG_CONFIG_HOME/tunnelagent/environment</c>
+///     <c>export KEY=VALUE</c> lines at <c>$XDG_CONFIG_HOME/TunnelAgent/environment</c>
 ///     (Linux) or <c>~/Library/Application Support/tunnelagent/environment</c> (macOS).
 ///     Read at startup via <see cref="SeedProcessEnvironment"/> to seed the process env.
 ///   </item>
@@ -50,9 +51,7 @@ internal sealed class UnixUserEnvironmentService : IUserEnvironmentService
     // Production constructor — uses real OS paths.
     internal UnixUserEnvironmentService()
         : this(
-            appEnvFile: Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "tunnelagent", "environment"),
+            appEnvFile: GetAppEnvFilePath(),
             profile: Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 ".profile"),
@@ -60,6 +59,45 @@ internal sealed class UnixUserEnvironmentService : IUserEnvironmentService
                 Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
                 "Library", "LaunchAgents", $"{LaunchAgentLabel}.plist"))
     { }
+
+    private static string GetAppEnvFilePath()
+    {
+        var configDir = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        if (OperatingSystem.IsLinux())
+            return GetLinuxAppEnvFilePath(configDir);
+
+        return Path.Combine(configDir, "tunnelagent", "environment");
+    }
+
+    internal static string GetLinuxAppEnvFilePath(string configDir)
+    {
+        var appDir = Path.Combine(configDir, "TunnelAgent");
+        var envFile = Path.Combine(appDir, "environment");
+        var legacyFile = Path.Combine(configDir, "tunnelagent", "environment");
+
+        if (File.Exists(envFile))
+        {
+            TryChmod600(envFile);
+            return envFile;
+        }
+        if (!File.Exists(legacyFile)) return envFile;
+
+        try
+        {
+            Directory.CreateDirectory(appDir);
+            File.Move(legacyFile, envFile);
+            TryChmod600(envFile);
+            try { Directory.Delete(Path.GetDirectoryName(legacyFile)!); }
+            catch { }
+            return envFile;
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+
+        // Keep working from legacy store if migration cannot write to canonical directory.
+        TryChmod600(legacyFile);
+        return legacyFile;
+    }
 
     // Testable constructor — caller supplies isolated temp paths.
     internal UnixUserEnvironmentService(string appEnvFile, string profile, string launchAgentPlist)
@@ -79,6 +117,16 @@ internal sealed class UnixUserEnvironmentService : IUserEnvironmentService
     {
         foreach (var (k, v) in ReadAppStore())
             Environment.SetEnvironmentVariable(k, v, EnvironmentVariableTarget.Process);
+    }
+
+    internal void Initialize()
+    {
+        SeedProcessEnvironment();
+        if (!OperatingSystem.IsLinux() || ReadAppStore().Count == 0) return;
+
+        try { EnsureProfileHookCore(); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
     }
 
     // ── IUserEnvironmentService ───────────────────────────────────────────────
@@ -189,17 +237,45 @@ internal sealed class UnixUserEnvironmentService : IUserEnvironmentService
     {
         lock (_fileLock)
         {
-            var content = File.Exists(_profile) ? File.ReadAllText(_profile) : string.Empty;
-            if (content.Contains(ProfileBlockBegin)) return;
+            var lines = File.Exists(_profile) ? File.ReadAllLines(_profile) : Array.Empty<string>();
+            var hook = new[]
+            {
+                ProfileBlockBegin,
+                $"[ -f \"{_appEnvFile}\" ] && . \"{_appEnvFile}\"",
+                ProfileBlockEnd
+            };
+            var output = new List<string>();
+            bool replaced = false;
 
-            var hook = new StringBuilder();
-            if (content.Length > 0 && !content.EndsWith('\n'))
-                hook.AppendLine();
-            hook.AppendLine(ProfileBlockBegin);
-            hook.AppendLine($"[ -f \"{_appEnvFile}\" ] && . \"{_appEnvFile}\"");
-            hook.AppendLine(ProfileBlockEnd);
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].TrimEnd() != ProfileBlockBegin)
+                {
+                    output.Add(lines[i]);
+                    continue;
+                }
 
-            File.AppendAllText(_profile, hook.ToString(),
+                var end = Array.FindIndex(lines, i + 1, l => l.TrimEnd() == ProfileBlockEnd);
+                if (end < 0 && replaced)
+                {
+                    output.Add(lines[i]);
+                    continue;
+                }
+
+                if (!replaced) output.AddRange(hook);
+                replaced = true;
+                if (end >= 0) i = end;
+            }
+
+            if (!replaced)
+            {
+                if (output.Count > 0 && !string.IsNullOrWhiteSpace(output[^1])) output.Add(string.Empty);
+                output.AddRange(hook);
+            }
+
+            if (File.Exists(_profile) && output.SequenceEqual(lines)) return;
+
+            File.WriteAllLines(_profile, output,
                 new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         }
     }
