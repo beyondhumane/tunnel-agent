@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.1.8] - 2026-09-30
+
+### Fixed
+
+- **Linux environment variables stored outside the app settings folder** (`UnixUserEnvironmentService`): variables are now persisted in `~/.config/TunnelAgent/environment`, next to the rest of the app settings, instead of the lowercase `~/.config/tunnelagent/`. The old file is moved on startup with permissions set to 600, and the `~/.profile` hook is updated where it already sits so the order of your own exports doesn't change. If the move fails, the app keeps using the old file instead of failing to start.
+- **Empty CLIProxyAPI API-key list when the settings folder isn't writable** (`MainWindowViewModel`): the key from `TUNNEL_AGENT_CLIPROXY_API_KEY` is shown even when it can't be copied into `proxy-config.yaml`.
+
 ## [1.1.7] - 2026-09-29
 
 ### Added
@@ -1061,6 +1068,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Engine always reads version from binary at startup (never trusts cached value)
 - Update notification triggers reactively from `StateChanged` rather than at a fixed startup point
 
+[1.1.8]: https://github.com/Villoh/tunnel-agent/compare/v1.1.7...v1.1.8
 [1.1.7]: https://github.com/Villoh/tunnel-agent/compare/v1.1.6...v1.1.7
 [1.1.6]: https://github.com/Villoh/tunnel-agent/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/Villoh/tunnel-agent/compare/v1.1.4...v1.1.5
