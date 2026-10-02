@@ -164,6 +164,13 @@ public partial class ProviderAccountViewModel : ViewModelBase
             ? LocalizationService.Instance.GetString("Quota_Empty_NoDataDescription")
             : LocalizationService.Instance.GetString("Quota_Empty_NotLoadedDescription");
 
+    /// <summary>Non-fatal fetch notice shown under the bars, e.g. rate limited while showing the last values.</summary>
+    [ObservableProperty] private string _quotaNotice = "";
+    partial void OnQuotaNoticeChanged(string value) { OnPropertyChanged(nameof(QuotaNoticeText)); OnPropertyChanged(nameof(HasQuotaNotice)); }
+
+    public string QuotaNoticeText => QuotaBarViewModel.LocalizeValue(QuotaNotice);
+    public bool HasQuotaNotice => HasQuota && !string.IsNullOrEmpty(QuotaNotice);
+
     [ObservableProperty] private bool _isRefreshing;
     [ObservableProperty] private bool _isProviderEnabled = true;
 
@@ -192,7 +199,11 @@ public partial class ProviderAccountViewModel : ViewModelBase
         _label      = label;
         _isDisabled = isDisabled;
         QuotaBars   = new ObservableCollection<QuotaBarViewModel>();
-        QuotaBars.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasQuota));
+        QuotaBars.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(HasQuota));
+            OnPropertyChanged(nameof(HasQuotaNotice));
+        };
         ResetCredits.CollectionChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(HasResetCredits));
@@ -202,6 +213,7 @@ public partial class ProviderAccountViewModel : ViewModelBase
         {
             OnPropertyChanged(nameof(QuotaEmptyLabel));
             OnPropertyChanged(nameof(QuotaEmptyDescription));
+            OnPropertyChanged(nameof(QuotaNoticeText));
             OnPropertyChanged(nameof(ResetCountBadge));
         };
     }

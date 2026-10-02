@@ -85,6 +85,12 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
+                    <TextBlock Text="{Binding QuotaNoticeText}"
+                               FontSize="10.5"
+                               TextWrapping="Wrap"
+                               Foreground="{DynamicResource WarnBrush}"
+                               IsVisible="{Binding HasQuotaNotice}" />
+
                     <TextBlock Classes="row-desc"
                                Text="{Binding QuotaEmptyLabel}"
                                IsVisible="{Binding HasQuota, Converter={StaticResource InvertBool}}" />

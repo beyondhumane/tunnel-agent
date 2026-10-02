@@ -1688,6 +1688,12 @@
   <data name="Quota_Error_RateLimited" xml:space="preserve">
     <value>L’API quota di {0} è limitata. Riprova più tardi.</value>
   </data>
+  <data name="Quota_Error_RateLimitedRetry" xml:space="preserve">
+    <value>L’API quota di {0} è limitata. Nuovo tentativo tra ~{1} min.</value>
+  </data>
+  <data name="Quota_Notice_RateLimitedRetry" xml:space="preserve">
+    <value>{0} limita le richieste: vengono mostrati gli ultimi valori. Nuovo tentativo tra ~{1} min.</value>
+  </data>
   <data name="Quota_Error_ApiUnavailable" xml:space="preserve">
     <value>L’API quota di {0} non è disponibile ({1}). Riprova più tardi.</value>
   </data>
