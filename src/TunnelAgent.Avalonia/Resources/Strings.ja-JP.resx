@@ -1688,6 +1688,12 @@
   <data name="Quota_Error_RateLimited" xml:space="preserve">
     <value>{0} のクォータ API はレート制限中です。後でもう一度お試しください。</value>
   </data>
+  <data name="Quota_Error_RateLimitedRetry" xml:space="preserve">
+    <value>{0} のクォータ API はレート制限中です。約 {1} 分後に再試行します。</value>
+  </data>
+  <data name="Quota_Notice_RateLimitedRetry" xml:space="preserve">
+    <value>{0} がリクエストを制限中のため、前回の値を表示しています。約 {1} 分後に再試行します。</value>
+  </data>
   <data name="Quota_Error_ApiUnavailable" xml:space="preserve">
     <value>{0} のクォータ API を利用できません（{1}）。後でもう一度お試しください。</value>
   </data>

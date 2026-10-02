@@ -1942,6 +1942,12 @@
   <data name="Quota_Error_RateLimited" xml:space="preserve">
     <value>{0} quota API is rate limited. Try again later.</value>
   </data>
+  <data name="Quota_Error_RateLimitedRetry" xml:space="preserve">
+    <value>{0} quota API is rate limited. Retrying in ~{1} min.</value>
+  </data>
+  <data name="Quota_Notice_RateLimitedRetry" xml:space="preserve">
+    <value>Rate limited by {0}: showing the last values. Retrying in ~{1} min.</value>
+  </data>
   <data name="Quota_Error_ApiUnavailable" xml:space="preserve">
     <value>{0} quota API is unavailable ({1}). Try again later.</value>
   </data>

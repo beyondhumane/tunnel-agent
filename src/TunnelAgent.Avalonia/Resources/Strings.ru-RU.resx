@@ -1688,6 +1688,12 @@
   <data name="Quota_Error_RateLimited" xml:space="preserve">
     <value>API квоты {0} ограничен по частоте. Повторите позже.</value>
   </data>
+  <data name="Quota_Error_RateLimitedRetry" xml:space="preserve">
+    <value>API квоты {0} ограничен по частоте. Повтор через ~{1} мин.</value>
+  </data>
+  <data name="Quota_Notice_RateLimitedRetry" xml:space="preserve">
+    <value>{0} ограничивает запросы: показаны последние значения. Повтор через ~{1} мин.</value>
+  </data>
   <data name="Quota_Error_ApiUnavailable" xml:space="preserve">
     <value>API квоты {0} недоступен ({1}). Повторите позже.</value>
   </data>

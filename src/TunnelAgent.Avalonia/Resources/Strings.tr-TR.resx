@@ -1688,6 +1688,12 @@
   <data name="Quota_Error_RateLimited" xml:space="preserve">
     <value>{0} kota API’si hız sınırına takıldı. Daha sonra tekrar deneyin.</value>
   </data>
+  <data name="Quota_Error_RateLimitedRetry" xml:space="preserve">
+    <value>{0} kota API’si hız sınırına takıldı. ~{1} dk sonra yeniden denenecek.</value>
+  </data>
+  <data name="Quota_Notice_RateLimitedRetry" xml:space="preserve">
+    <value>{0} istekleri sınırlıyor: son değerler gösteriliyor. ~{1} dk sonra yeniden denenecek.</value>
+  </data>
   <data name="Quota_Error_ApiUnavailable" xml:space="preserve">
     <value>{0} kota API’si kullanılamıyor ({1}). Daha sonra tekrar deneyin.</value>
   </data>

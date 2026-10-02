@@ -182,6 +182,11 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
+                                <TextBlock Text="{Binding QuotaNoticeText}"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"
+                                           Foreground="{DynamicResource WarnBrush}"
+                                           IsVisible="{Binding HasQuotaNotice}" />
                             </StackPanel>
 
                             <Border Background="#08FFFFFF"

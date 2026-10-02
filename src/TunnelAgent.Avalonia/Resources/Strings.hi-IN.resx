@@ -1688,6 +1688,12 @@
   <data name="Quota_Error_RateLimited" xml:space="preserve">
     <value>{0} कोटा API दर-सीमित है। बाद में फिर प्रयास करें।</value>
   </data>
+  <data name="Quota_Error_RateLimitedRetry" xml:space="preserve">
+    <value>{0} कोटा API दर-सीमित है। ~{1} मिनट में फिर प्रयास होगा।</value>
+  </data>
+  <data name="Quota_Notice_RateLimitedRetry" xml:space="preserve">
+    <value>{0} अनुरोधों को सीमित कर रहा है: पिछले मान दिखाए जा रहे हैं। ~{1} मिनट में फिर प्रयास होगा।</value>
+  </data>
   <data name="Quota_Error_ApiUnavailable" xml:space="preserve">
     <value>{0} कोटा API उपलब्ध नहीं है ({1})। बाद में फिर प्रयास करें।</value>
   </data>

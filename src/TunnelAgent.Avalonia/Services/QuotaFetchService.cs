@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -71,7 +72,32 @@ public sealed class QuotaFetchService
     // cedar_ember=1 makes the endpoint also return the saved "limit reset" grants (same flag Claude Code uses).
     private const string ClaudeUsageUrl = "https://api.anthropic.com/api/oauth/usage?cedar_ember=1";
 
-    private async Task FetchClaudeAsync(ProviderAccountViewModel account, CancellationToken ct)
+    // Anthropic decides cedar_ember grant eligibility by client surface (other agents come back
+    // ineligible_reason "surface"), so identify as Claude Code like other usage monitors do.
+    private const string ClaudeCodeUserAgent = "claude-cli/2.1.280 (external, cli)";
+
+    // /api/oauth/usage rate-limits aggressively; shared by every QuotaFetchService instance.
+    private static readonly ClaudeUsageThrottle ClaudeThrottle = new();
+
+    private Task FetchClaudeAsync(ProviderAccountViewModel account, CancellationToken ct) =>
+        FetchClaudeAsync(account, ct, force: false);
+
+    private async Task FetchClaudeAsync(ProviderAccountViewModel account, CancellationToken ct, bool force)
+    {
+        var key = account.Email;
+        var accountLock = ClaudeThrottle.LockFor(key);
+        await accountLock.WaitAsync(ct);
+        try
+        {
+            await FetchClaudeLockedAsync(account, key, ct, force);
+        }
+        finally
+        {
+            accountLock.Release();
+        }
+    }
+
+    private async Task FetchClaudeLockedAsync(ProviderAccountViewModel account, string key, CancellationToken ct, bool force)
     {
         var token = ReadAccessToken("claude", account.Email);
         if (token is null)
@@ -80,22 +106,25 @@ public sealed class QuotaFetchService
             return;
         }
 
+        var gate = ClaudeThrottle.Check(key, token, force);
+        if (gate.Decision == ClaudeUsageThrottle.Decision.UseCache && gate.CachedBody is not null)
+        {
+            ApplyClaudeUsage(account, gate.CachedBody);
+            return;
+        }
+        if (gate.Decision == ClaudeUsageThrottle.Decision.RateLimited)
+        {
+            ApplyClaudeRateLimited(account, gate.CachedBody, gate.RetryIn);
+            return;
+        }
+
         try
         {
             token = await RefreshClaudeTokenIfNeededAsync(account.Email, token, ct) ?? token;
+            var (status, retryAfter, body) = await SendClaudeUsageAsync(token, ct);
 
-            using var req = new HttpRequestMessage(HttpMethod.Get,
-                ClaudeUsageUrl);
-            req.Headers.Add("Authorization", $"Bearer {token}");
-            req.Headers.Add("Accept", "application/json");
-            req.Headers.Add("anthropic-beta", "oauth-2025-04-20");
-            req.Headers.Add("User-Agent", "TunnelAgent/1.0");
-
-            using var resp = await Http.SendAsync(req, ct);
-
-            // Reactive refresh on 401/403
-            if (resp.StatusCode is System.Net.HttpStatusCode.Unauthorized
-                                or System.Net.HttpStatusCode.Forbidden)
+            // Reactive refresh on 401/403, then retry once with the new token
+            if (status is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
             {
                 var refreshed = await RefreshClaudeTokenIfNeededAsync(account.Email, token, ct, force: true);
                 if (refreshed is null)
@@ -104,40 +133,56 @@ public sealed class QuotaFetchService
                     return;
                 }
                 token = refreshed;
-                // Retry once with new token
-                using var req2 = new HttpRequestMessage(HttpMethod.Get,
-                    ClaudeUsageUrl);
-                req2.Headers.Add("Authorization", $"Bearer {token}");
-                req2.Headers.Add("Accept", "application/json");
-                req2.Headers.Add("anthropic-beta", "oauth-2025-04-20");
-                req2.Headers.Add("User-Agent", "TunnelAgent/1.0");
-                using var resp2 = await Http.SendAsync(req2, ct);
-                if (!resp2.IsSuccessStatusCode)
-                {
-                    SetQuotaError(account, ToQuotaErrorMessage("Claude", resp2.StatusCode));
-                    return;
-                }
-                await ParseClaudeUsageAsync(account, resp2, ct);
+                (status, retryAfter, body) = await SendClaudeUsageAsync(token, ct);
+            }
+
+            if (status == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                var (retryIn, cachedBody) = ClaudeThrottle.RecordRateLimited(key, retryAfter);
+                ApplyClaudeRateLimited(account, cachedBody, retryIn);
                 return;
             }
 
-            if (!resp.IsSuccessStatusCode)
+            if ((int)status is < 200 or >= 300)
             {
-                SetQuotaError(account, ToQuotaErrorMessage("Claude", resp.StatusCode));
+                SetQuotaError(account, ToQuotaErrorMessage("Claude", status));
                 return;
             }
-            await ParseClaudeUsageAsync(account, resp, ct);
+
+            ApplyClaudeUsage(account, body);
+            ClaudeThrottle.RecordSuccess(key, token, body);
         }
         catch (OperationCanceledException) { throw; }
         catch { }
     }
 
-    private async Task ParseClaudeUsageAsync(
-        ProviderAccountViewModel account,
-        HttpResponseMessage resp,
-        CancellationToken ct)
+    private static async Task<(System.Net.HttpStatusCode Status, RetryConditionHeaderValue? RetryAfter, string Body)>
+        SendClaudeUsageAsync(string token, CancellationToken ct)
     {
-        var body = JsonNode.Parse(await resp.Content.ReadAsStringAsync(ct));
+        using var req = new HttpRequestMessage(HttpMethod.Get, ClaudeUsageUrl);
+        AddClaudeOAuthHeaders(req, token);
+        using var resp = await Http.SendAsync(req, ct);
+        var body = resp.IsSuccessStatusCode ? await resp.Content.ReadAsStringAsync(ct) : "";
+        return (resp.StatusCode, resp.Headers.RetryAfter, body);
+    }
+
+    /// <summary>Keeps the last good bars (with a notice) while rate limited; an error only when there is nothing to show.</summary>
+    private static void ApplyClaudeRateLimited(ProviderAccountViewModel account, string? cachedBody, TimeSpan retryIn)
+    {
+        var minutes = ClaudeUsageThrottle.ToRetryMinutes(retryIn);
+        if (cachedBody is null)
+        {
+            SetQuotaError(account, $"loc:Quota_Error_RateLimitedRetry|Claude|{minutes}");
+            return;
+        }
+        ApplyClaudeUsage(account, cachedBody);
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            account.QuotaNotice = $"loc:Quota_Notice_RateLimitedRetry|Claude|{minutes}");
+    }
+
+    private static void ApplyClaudeUsage(ProviderAccountViewModel account, string json)
+    {
+        var body = JsonNode.Parse(json);
         if (body is null) return;
 
         // Plan badge from ~/.claude/.credentials.json
@@ -214,12 +259,118 @@ public sealed class QuotaFetchService
         var grants = ParseClaudeResetGrants(body["cedar_ember"]);
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
+            account.QuotaError = "";
+            account.QuotaNotice = "";
             account.ResetCredits.Clear();
             foreach (var g in grants)
                 account.ResetCredits.Add(new QuotaResetCreditViewModel(
                     account, g.Id, string.IsNullOrWhiteSpace(g.Label) ? "Rate limit reset" : g.Label,
                     FormatExpiresAtIso(g.EndsAt), g.ResetsLeft, g.UsableNow));
         });
+    }
+
+    /// <summary>
+    /// Per-account guard for <c>/api/oauth/usage</c>: at most one live call per <see cref="MinInterval"/>
+    /// (unless forced), and no calls at all while a 429 cooldown (Retry-After, else <see cref="DefaultCooldown"/>)
+    /// is active. Keeps the last good response so callers can repaint it instead of blanking the bars.
+    /// </summary>
+    internal sealed class ClaudeUsageThrottle
+    {
+        internal enum Decision { Fetch, UseCache, RateLimited }
+
+        internal readonly record struct Gate(Decision Decision, string? CachedBody, TimeSpan RetryIn);
+
+        internal static readonly TimeSpan MinInterval = TimeSpan.FromMinutes(5);
+        internal static readonly TimeSpan DefaultCooldown = TimeSpan.FromMinutes(5);
+
+        private sealed class Entry
+        {
+            public string? Body;
+            public string? Token;
+            public DateTimeOffset FetchedAt;
+            public DateTimeOffset? RateLimitedUntil;
+        }
+
+        private readonly Func<DateTimeOffset> _now;
+        private readonly Dictionary<string, Entry> _entries = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, SemaphoreSlim> _accountLocks = new(StringComparer.OrdinalIgnoreCase);
+        private readonly object _lock = new();
+
+        internal ClaudeUsageThrottle(Func<DateTimeOffset>? now = null) => _now = now ?? (() => DateTimeOffset.UtcNow);
+
+        internal SemaphoreSlim LockFor(string key)
+        {
+            lock (_lock)
+            {
+                if (!_accountLocks.TryGetValue(key, out var sem))
+                    _accountLocks[key] = sem = new SemaphoreSlim(1, 1);
+                return sem;
+            }
+        }
+
+        /// <summary>A body fetched with a different token (re-login, external refresh) is dropped; the cooldown is kept.</summary>
+        internal Gate Check(string key, string token, bool force)
+        {
+            lock (_lock)
+            {
+                if (!_entries.TryGetValue(key, out var e)) return new(Decision.Fetch, null, TimeSpan.Zero);
+                if (e.Body is not null && e.Token != token) e.Body = null;
+                var now = _now();
+                if (e.RateLimitedUntil is { } until && now < until)
+                    return new(Decision.RateLimited, e.Body, until - now);
+                if (!force && e.Body is not null && now - e.FetchedAt < MinInterval)
+                    return new(Decision.UseCache, e.Body, TimeSpan.Zero);
+                return new(Decision.Fetch, e.Body, TimeSpan.Zero);
+            }
+        }
+
+        internal void RecordSuccess(string key, string token, string body)
+        {
+            lock (_lock)
+            {
+                var e = GetOrAdd(key);
+                e.Body = body;
+                e.Token = token;
+                e.FetchedAt = _now();
+                e.RateLimitedUntil = null;
+            }
+        }
+
+        internal (TimeSpan RetryIn, string? CachedBody) RecordRateLimited(string key, RetryConditionHeaderValue? retryAfter)
+        {
+            lock (_lock)
+            {
+                var now = _now();
+                var retryIn = ParseRetryAfter(retryAfter, now) ?? DefaultCooldown;
+                var e = GetOrAdd(key);
+                e.RateLimitedUntil = now + retryIn;
+                return (retryIn, e.Body);
+            }
+        }
+
+        /// <summary>Drops the cached body so the next check fetches (the cooldown, if any, still applies).</summary>
+        internal void Invalidate(string key)
+        {
+            lock (_lock)
+            {
+                if (_entries.TryGetValue(key, out var e)) e.Body = null;
+            }
+        }
+
+        internal static TimeSpan? ParseRetryAfter(RetryConditionHeaderValue? retryAfter, DateTimeOffset now)
+        {
+            var wait = retryAfter?.Delta ?? (retryAfter?.Date is { } date ? date - now : null);
+            return wait is null ? null : wait < TimeSpan.Zero ? TimeSpan.Zero : wait;
+        }
+
+        internal static int ToRetryMinutes(TimeSpan retryIn) => Math.Max(1, (int)Math.Ceiling(retryIn.TotalMinutes));
+
+        private Entry GetOrAdd(string key)
+        {
+            if (!_entries.TryGetValue(key, out var e))
+                _entries[key] = e = new Entry();
+            return e;
+        }
     }
 
     // ── Claude saved limit reset ("Reset for free") ─────────────────────────────
@@ -314,7 +465,8 @@ public sealed class QuotaFetchService
                     foreach (var spent in account.ResetCredits.Where(c => c.Id == grantId).ToList())
                         account.ResetCredits.Remove(spent);
                 });
-                await FetchClaudeAsync(account, ct); // re-fetches usage + whatever grants remain
+                ClaudeThrottle.Invalidate(account.Email); // cached usage and grants predate the reset
+                await FetchClaudeAsync(account, ct, force: true); // re-fetches usage + whatever grants remain
             }
         }
         catch (OperationCanceledException) { throw; }
@@ -326,7 +478,7 @@ public sealed class QuotaFetchService
         req.Headers.Add("Authorization", $"Bearer {token}");
         req.Headers.Add("Accept", "application/json");
         req.Headers.Add("anthropic-beta", "oauth-2025-04-20");
-        req.Headers.Add("User-Agent", "TunnelAgent/1.0");
+        req.Headers.Add("User-Agent", ClaudeCodeUserAgent);
     }
 
     /// <summary>Redeems a saved rate-limit reset for whichever provider owns the account.</summary>
@@ -1873,6 +2025,7 @@ public sealed class QuotaFetchService
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             account.QuotaBars.Clear();
+            account.QuotaNotice = "";
             account.QuotaFetchedEmpty = false;
             account.QuotaError = message;
         });

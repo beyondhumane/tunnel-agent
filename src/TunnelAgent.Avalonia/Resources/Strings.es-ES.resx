@@ -1857,6 +1857,12 @@
   <data name="Quota_Error_RateLimited" xml:space="preserve">
     <value>La API de cuota de {0} está limitada por frecuencia. Inténtalo más tarde.</value>
   </data>
+  <data name="Quota_Error_RateLimitedRetry" xml:space="preserve">
+    <value>La API de cuota de {0} está limitada por frecuencia. Reintento en ~{1} min.</value>
+  </data>
+  <data name="Quota_Notice_RateLimitedRetry" xml:space="preserve">
+    <value>{0} limita la frecuencia: se muestran los últimos valores. Reintento en ~{1} min.</value>
+  </data>
   <data name="Quota_Error_ApiUnavailable" xml:space="preserve">
     <value>La API de cuota de {0} no está disponible ({1}). Inténtalo más tarde.</value>
   </data>

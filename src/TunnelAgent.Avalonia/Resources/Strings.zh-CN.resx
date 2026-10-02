@@ -1688,6 +1688,12 @@
   <data name="Quota_Error_RateLimited" xml:space="preserve">
     <value>{0} 额度 API 受到限流。请稍后重试。</value>
   </data>
+  <data name="Quota_Error_RateLimitedRetry" xml:space="preserve">
+    <value>{0} 额度 API 受到限流。约 {1} 分钟后重试。</value>
+  </data>
+  <data name="Quota_Notice_RateLimitedRetry" xml:space="preserve">
+    <value>{0} 正在限流，显示的是上次的数值。约 {1} 分钟后重试。</value>
+  </data>
   <data name="Quota_Error_ApiUnavailable" xml:space="preserve">
     <value>{0} 额度 API 不可用（{1}）。请稍后重试。</value>
   </data>
