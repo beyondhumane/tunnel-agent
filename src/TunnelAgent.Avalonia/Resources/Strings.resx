@@ -942,14 +942,17 @@
   <data name="QuotaView_Account_UsageSection" xml:space="preserve">
     <value>USAGE</value>
   </data>
-  <data name="QuotaView_Codex_ResetSection_Title" xml:space="preserve">
+  <data name="QuotaView_Reset_SectionTitle" xml:space="preserve">
     <value>Usage limit resets</value>
   </data>
-  <data name="QuotaView_Codex_ResetCount" xml:space="preserve">
+  <data name="QuotaView_Reset_Count" xml:space="preserve">
     <value>{0} available</value>
   </data>
-  <data name="QuotaView_Codex_ResetButton" xml:space="preserve">
+  <data name="QuotaView_Reset_Button" xml:space="preserve">
     <value>Use reset</value>
+  </data>
+  <data name="QuotaView_Reset_RequiresLimit" xml:space="preserve">
+    <value>Available once you hit a usage limit</value>
   </data>
 
   <!-- ═══════════════════════════════════════════════════════════════════════════

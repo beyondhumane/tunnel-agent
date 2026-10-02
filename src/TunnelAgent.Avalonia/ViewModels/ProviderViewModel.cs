@@ -70,26 +70,51 @@ public partial class QuotaBarViewModel : ViewModelBase
 
 // ── Account slot ─────────────────────────────────────────────────────────────
 
-/// <summary>One redeemable Codex saved rate-limit reset ("banked reset") for a specific account.</summary>
-public sealed class CodexResetCreditViewModel : ViewModelBase
+/// <summary>One redeemable saved rate-limit reset (Codex "banked reset" or Claude "limit reset") for a specific account.</summary>
+public sealed class QuotaResetCreditViewModel : ViewModelBase
 {
     public ProviderAccountViewModel Account { get; }
     public string Id { get; }
 
-    /// <summary>Provider-supplied card title, e.g. "Full reset (Weekly + 5 hr)". Not localized — comes from OpenAI as-is.</summary>
+    /// <summary>Provider-supplied title, e.g. "Full reset (Weekly + 5 hr)". Not localized — comes from the provider as-is.</summary>
     public string Title { get; }
+
+    /// <summary>How many resets this entry redeems one at a time (Claude grants can hold several).</summary>
+    public int Uses { get; }
+
+    /// <summary>False when the provider only allows the reset once a limit is reached.</summary>
+    public bool IsUsableNow { get; }
+
+    public bool CanRedeem => IsUsableNow && !Account.IsResettingQuota;
 
     private readonly string _expiresRaw;
     /// <summary>Localized "Expires in Xd Yh"-style text (reuses QuotaBarViewModel's loc: sentinel format).</summary>
-    public string ExpiresLabel => QuotaBarViewModel.LocalizeValue(_expiresRaw);
+    public string ExpiresLabel
+    {
+        get
+        {
+            var expires = QuotaBarViewModel.LocalizeValue(_expiresRaw);
+            if (IsUsableNow) return expires;
+            var hint = LocalizationService.Instance.GetString("QuotaView_Reset_RequiresLimit");
+            return string.IsNullOrEmpty(expires) ? hint : $"{expires} · {hint}";
+        }
+    }
 
-    public CodexResetCreditViewModel(ProviderAccountViewModel account, string id, string title, string expiresRaw)
+    public QuotaResetCreditViewModel(ProviderAccountViewModel account, string id, string title, string expiresRaw,
+        int uses = 1, bool isUsableNow = true)
     {
         Account = account;
         Id = id;
         Title = title;
+        Uses = Math.Max(1, uses);
+        IsUsableNow = isUsableNow;
         _expiresRaw = expiresRaw;
         LocalizationService.Instance.PropertyChanged += (_, _) => OnPropertyChanged(nameof(ExpiresLabel));
+        account.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ProviderAccountViewModel.IsResettingQuota))
+                OnPropertyChanged(nameof(CanRedeem));
+        };
     }
 }
 
@@ -145,17 +170,17 @@ public partial class ProviderAccountViewModel : ViewModelBase
     [ObservableProperty] private bool _isRefreshing;
     [ObservableProperty] private bool _isProviderEnabled = true;
 
-    /// <summary>Codex only: this account's redeemable saved rate-limit resets ("banked resets").</summary>
-    public ObservableCollection<CodexResetCreditViewModel> CodexResetCredits { get; } = new();
+    /// <summary>Codex/Claude: this account's redeemable saved rate-limit resets.</summary>
+    public ObservableCollection<QuotaResetCreditViewModel> ResetCredits { get; } = new();
 
-    public bool HasCodexResetCredits => CodexResetCredits.Count > 0;
+    public bool HasResetCredits => ResetCredits.Count > 0;
 
     /// <summary>"{0} available" badge text for the collapsible header.</summary>
-    public string CodexResetCountBadge => LocalizationService.Instance.GetString("QuotaView_Codex_ResetCount", CodexResetCredits.Count);
+    public string ResetCountBadge => LocalizationService.Instance.GetString("QuotaView_Reset_Count", ResetCredits.Sum(c => c.Uses));
 
-    [ObservableProperty] private bool _isCodexResetSectionExpanded;
+    [ObservableProperty] private bool _isResetSectionExpanded;
 
-    [ObservableProperty] private bool _isResettingCodexQuota;
+    [ObservableProperty] private bool _isResettingQuota;
 
     public ProviderAccountViewModel(string providerId, string apiKey, string label, bool isDisabled)
     {
@@ -165,16 +190,16 @@ public partial class ProviderAccountViewModel : ViewModelBase
         _isDisabled = isDisabled;
         QuotaBars   = new ObservableCollection<QuotaBarViewModel>();
         QuotaBars.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasQuota));
-        CodexResetCredits.CollectionChanged += (_, _) =>
+        ResetCredits.CollectionChanged += (_, _) =>
         {
-            OnPropertyChanged(nameof(HasCodexResetCredits));
-            OnPropertyChanged(nameof(CodexResetCountBadge));
+            OnPropertyChanged(nameof(HasResetCredits));
+            OnPropertyChanged(nameof(ResetCountBadge));
         };
         LocalizationService.Instance.PropertyChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(QuotaEmptyLabel));
             OnPropertyChanged(nameof(QuotaEmptyDescription));
-            OnPropertyChanged(nameof(CodexResetCountBadge));
+            OnPropertyChanged(nameof(ResetCountBadge));
         };
     }
 
