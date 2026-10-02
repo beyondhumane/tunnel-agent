@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Claude quota stuck on HTTP 429** (`QuotaFetchService`, `ProviderViewModel`, `QuotaView`, `TrayUsagePopup`): Claude usage is fetched at most once every 5 minutes per account (manual refreshes reuse the last result inside that window), and after a 429 the app waits for `Retry-After` (or 5 minutes) before calling the API again instead of retrying on every refresh and extending the limit. While rate limited, the last good bars stay visible with a "showing the last values, retrying in ~N min" notice instead of being cleared. Claude OAuth requests now identify as Claude Code (`claude-cli/… (external, cli)`), which Anthropic also uses to decide whether saved limit resets are returned.
+- **Claude quota stuck on HTTP 429** (`QuotaFetchService`, `ProviderViewModel`, `QuotaView`, `TrayUsagePopup`): Claude usage is fetched at most once every 5 minutes per account (manual refreshes reuse the last result inside that window, and overlapping refreshes share one request), and after a 429 the app waits for `Retry-After` (or 5 minutes) before calling the API again instead of retrying on every refresh and extending the limit. While rate limited, the last good bars stay visible with a "showing the last values, retrying in ~N min" notice instead of being cleared; the cache is dropped after using a saved reset or when the account's token changes. Claude OAuth requests now identify as Claude Code (`claude-cli/… (external, cli)`), which Anthropic also uses to decide whether saved limit resets are returned.
 
 ## [1.1.9] - 2026-10-02
 

@@ -85,7 +85,28 @@ public sealed class QuotaFetchService
     private async Task FetchClaudeAsync(ProviderAccountViewModel account, CancellationToken ct, bool force)
     {
         var key = account.Email;
-        var gate = ClaudeThrottle.Check(key, force);
+        var accountLock = ClaudeThrottle.LockFor(key);
+        await accountLock.WaitAsync(ct);
+        try
+        {
+            await FetchClaudeLockedAsync(account, key, ct, force);
+        }
+        finally
+        {
+            accountLock.Release();
+        }
+    }
+
+    private async Task FetchClaudeLockedAsync(ProviderAccountViewModel account, string key, CancellationToken ct, bool force)
+    {
+        var token = ReadAccessToken("claude", account.Email);
+        if (token is null)
+        {
+            SetQuotaError(account, QuotaErrorTokenUnavailable("Claude"));
+            return;
+        }
+
+        var gate = ClaudeThrottle.Check(key, token, force);
         if (gate.Decision == ClaudeUsageThrottle.Decision.UseCache && gate.CachedBody is not null)
         {
             ApplyClaudeUsage(account, gate.CachedBody);
@@ -94,13 +115,6 @@ public sealed class QuotaFetchService
         if (gate.Decision == ClaudeUsageThrottle.Decision.RateLimited)
         {
             ApplyClaudeRateLimited(account, gate.CachedBody, gate.RetryIn);
-            return;
-        }
-
-        var token = ReadAccessToken("claude", account.Email);
-        if (token is null)
-        {
-            SetQuotaError(account, QuotaErrorTokenUnavailable("Claude"));
             return;
         }
 
@@ -118,7 +132,8 @@ public sealed class QuotaFetchService
                     SetQuotaError(account, QuotaErrorAuthExpired("Claude"));
                     return;
                 }
-                (status, retryAfter, body) = await SendClaudeUsageAsync(refreshed, ct);
+                token = refreshed;
+                (status, retryAfter, body) = await SendClaudeUsageAsync(token, ct);
             }
 
             if (status == System.Net.HttpStatusCode.TooManyRequests)
@@ -135,7 +150,7 @@ public sealed class QuotaFetchService
             }
 
             ApplyClaudeUsage(account, body);
-            ClaudeThrottle.RecordSuccess(key, body);
+            ClaudeThrottle.RecordSuccess(key, token, body);
         }
         catch (OperationCanceledException) { throw; }
         catch { }
@@ -271,21 +286,35 @@ public sealed class QuotaFetchService
         private sealed class Entry
         {
             public string? Body;
+            public string? Token;
             public DateTimeOffset FetchedAt;
             public DateTimeOffset? RateLimitedUntil;
         }
 
         private readonly Func<DateTimeOffset> _now;
         private readonly Dictionary<string, Entry> _entries = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, SemaphoreSlim> _accountLocks = new(StringComparer.OrdinalIgnoreCase);
         private readonly object _lock = new();
 
         internal ClaudeUsageThrottle(Func<DateTimeOffset>? now = null) => _now = now ?? (() => DateTimeOffset.UtcNow);
 
-        internal Gate Check(string key, bool force)
+        internal SemaphoreSlim LockFor(string key)
+        {
+            lock (_lock)
+            {
+                if (!_accountLocks.TryGetValue(key, out var sem))
+                    _accountLocks[key] = sem = new SemaphoreSlim(1, 1);
+                return sem;
+            }
+        }
+
+        /// <summary>A body fetched with a different token (re-login, external refresh) is dropped; the cooldown is kept.</summary>
+        internal Gate Check(string key, string token, bool force)
         {
             lock (_lock)
             {
                 if (!_entries.TryGetValue(key, out var e)) return new(Decision.Fetch, null, TimeSpan.Zero);
+                if (e.Body is not null && e.Token != token) e.Body = null;
                 var now = _now();
                 if (e.RateLimitedUntil is { } until && now < until)
                     return new(Decision.RateLimited, e.Body, until - now);
@@ -295,12 +324,13 @@ public sealed class QuotaFetchService
             }
         }
 
-        internal void RecordSuccess(string key, string body)
+        internal void RecordSuccess(string key, string token, string body)
         {
             lock (_lock)
             {
                 var e = GetOrAdd(key);
                 e.Body = body;
+                e.Token = token;
                 e.FetchedAt = _now();
                 e.RateLimitedUntil = null;
             }
@@ -315,6 +345,15 @@ public sealed class QuotaFetchService
                 var e = GetOrAdd(key);
                 e.RateLimitedUntil = now + retryIn;
                 return (retryIn, e.Body);
+            }
+        }
+
+        /// <summary>Drops the cached body so the next check fetches (the cooldown, if any, still applies).</summary>
+        internal void Invalidate(string key)
+        {
+            lock (_lock)
+            {
+                if (_entries.TryGetValue(key, out var e)) e.Body = null;
             }
         }
 
@@ -426,6 +465,7 @@ public sealed class QuotaFetchService
                     foreach (var spent in account.ResetCredits.Where(c => c.Id == grantId).ToList())
                         account.ResetCredits.Remove(spent);
                 });
+                ClaudeThrottle.Invalidate(account.Email); // cached usage and grants predate the reset
                 await FetchClaudeAsync(account, ct, force: true); // re-fetches usage + whatever grants remain
             }
         }
