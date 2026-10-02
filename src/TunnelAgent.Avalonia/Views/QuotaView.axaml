@@ -196,28 +196,28 @@
 
                             <Border Background="#08FFFFFF"
                                     CornerRadius="8"
-                                    IsVisible="{Binding HasCodexResetCredits}">
+                                    IsVisible="{Binding HasResetCredits}">
                                 <StackPanel>
                                     <Grid ColumnDefinitions="Auto,*,Auto" Margin="12,10" ColumnSpacing="8">
                                         <ToggleButton Grid.Column="0" Classes="chevron" Width="22" Height="22" VerticalAlignment="Center"
-                                                      IsChecked="{Binding IsCodexResetSectionExpanded, Mode=TwoWay}">
+                                                      IsChecked="{Binding IsResetSectionExpanded, Mode=TwoWay}">
                                             <lucide:PackIconLucide Kind="ChevronRight" Width="14" Height="14"
                                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
                                                                    Foreground="{DynamicResource FgBrush}" />
                                         </ToggleButton>
                                         <TextBlock Grid.Column="1" Classes="row-label" VerticalAlignment="Center"
-                                                   Text="{l:Loc QuotaView_Codex_ResetSection_Title}" />
+                                                   Text="{l:Loc QuotaView_Reset_SectionTitle}" />
                                         <Border Grid.Column="2" CornerRadius="999" Background="#1850C878" Padding="8,3" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding CodexResetCountBadge}" FontSize="11" FontWeight="SemiBold" Foreground="#50C878" />
+                                            <TextBlock Text="{Binding ResetCountBadge}" FontSize="11" FontWeight="SemiBold" Foreground="#50C878" />
                                         </Border>
                                     </Grid>
 
-                                    <Border Classes="collapsible" Classes.expanded="{Binding IsCodexResetSectionExpanded}">
+                                    <Border Classes="collapsible" Classes.expanded="{Binding IsResetSectionExpanded}">
                                         <StackPanel Margin="12,0,12,10" Spacing="10">
                                             <Border Classes="row-divider" Margin="0,0,0,4" />
-                                            <ItemsControl ItemsSource="{Binding CodexResetCredits}">
+                                            <ItemsControl ItemsSource="{Binding ResetCredits}">
                                                 <ItemsControl.ItemTemplate>
-                                                    <DataTemplate x:DataType="vm:CodexResetCreditViewModel">
+                                                    <DataTemplate x:DataType="vm:QuotaResetCreditViewModel">
                                                         <Grid ColumnDefinitions="*,Auto" Margin="0,4">
                                                             <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
                                                                 <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold"
@@ -225,9 +225,9 @@
                                                                 <TextBlock Text="{Binding ExpiresLabel}" Classes="row-desc" />
                                                             </StackPanel>
                                                             <Button Grid.Column="1" Classes="app" VerticalAlignment="Center" Margin="10,0,0,0"
-                                                                    Content="{l:Loc QuotaView_Codex_ResetButton}"
-                                                                    IsEnabled="{Binding Account.IsResettingCodexQuota, Converter={StaticResource InvertBool}}"
-                                                                    Click="OnResetCodexQuota"
+                                                                    Content="{l:Loc QuotaView_Reset_Button}"
+                                                                    IsEnabled="{Binding CanRedeem}"
+                                                                    Click="OnRedeemResetCredit"
                                                                     Tag="{Binding}" />
                                                         </Grid>
                                                     </DataTemplate>

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- **Claude saved limit resets ("Reset for free")** (`QuotaFetchService`, `ProviderViewModel`, `QuotaView`, `MainWindowViewModel`): Claude accounts with a saved reset now show the same collapsible "Usage limit resets" section as Codex, listing each grant (title + expiry) with a "Use reset" button. Grants that can only be spent once a limit is hit are listed with the button disabled. Uses the same Anthropic endpoints as Claude Code's `/limit-reset`; consuming one re-fetches usage so the bars update immediately. The Codex reset view model and strings are now shared between both providers.
+
 ## [1.1.8] - 2026-09-30
 
 ### Fixed

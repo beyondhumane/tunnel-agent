@@ -64,9 +64,12 @@ public sealed class QuotaFetchService
     }
 
     // ── Claude ───────────────────────────────────────────────────────────────
-    // GET https://api.anthropic.com/api/oauth/usage
+    // GET https://api.anthropic.com/api/oauth/usage?cedar_ember=1
     // { "five_hour":  { "utilization": 70.0, "resets_at": "2026-05-13T23:00:00Z" },
     //   "seven_day":  { "utilization": 41.0, "resets_at": "2026-05-19T06:00:00Z" } }
+
+    // cedar_ember=1 makes the endpoint also return the saved "limit reset" grants (same flag Claude Code uses).
+    private const string ClaudeUsageUrl = "https://api.anthropic.com/api/oauth/usage?cedar_ember=1";
 
     private async Task FetchClaudeAsync(ProviderAccountViewModel account, CancellationToken ct)
     {
@@ -82,7 +85,7 @@ public sealed class QuotaFetchService
             token = await RefreshClaudeTokenIfNeededAsync(account.Email, token, ct) ?? token;
 
             using var req = new HttpRequestMessage(HttpMethod.Get,
-                "https://api.anthropic.com/api/oauth/usage");
+                ClaudeUsageUrl);
             req.Headers.Add("Authorization", $"Bearer {token}");
             req.Headers.Add("Accept", "application/json");
             req.Headers.Add("anthropic-beta", "oauth-2025-04-20");
@@ -103,7 +106,7 @@ public sealed class QuotaFetchService
                 token = refreshed;
                 // Retry once with new token
                 using var req2 = new HttpRequestMessage(HttpMethod.Get,
-                    "https://api.anthropic.com/api/oauth/usage");
+                    ClaudeUsageUrl);
                 req2.Headers.Add("Authorization", $"Bearer {token}");
                 req2.Headers.Add("Accept", "application/json");
                 req2.Headers.Add("anthropic-beta", "oauth-2025-04-20");
@@ -207,7 +210,133 @@ public sealed class QuotaFetchService
         }
 
         ApplyBarsFromUtilization(account, bars);
+
+        var grants = ParseClaudeResetGrants(body["cedar_ember"]);
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            account.ResetCredits.Clear();
+            foreach (var g in grants)
+                account.ResetCredits.Add(new QuotaResetCreditViewModel(
+                    account, g.Id, string.IsNullOrWhiteSpace(g.Label) ? "Rate limit reset" : g.Label,
+                    FormatExpiresAtIso(g.EndsAt), g.ResetsLeft, g.UsableNow));
+        });
     }
+
+    // ── Claude saved limit reset ("Reset for free") ─────────────────────────────
+    // Real Claude account feature (Settings > Usage > Resets): eligible plans get grants they can
+    // spend on demand to refill the 5h and/or weekly limit. Same undocumented endpoints Claude Code's
+    // /limit-reset command uses (program "cedar_ember").
+    // GET  /api/oauth/usage?cedar_ember=1
+    //   { ..., "cedar_ember": { "eligible": true, "grants": [{ "id": "...", "label": "...", "resets_left": 1,
+    //       "ends_at": "...", "clears": ["five_hour","seven_day"], "paused": false, "usable_now": true }] } }
+    // POST /api/organizations/{org_uuid}/reset_rate_limits
+    //   { "program": "cedar_ember", "grant_id": "...", "request_id": "<uuid>" }
+    //   -> { "result": "reset" | "already_used" | "not_limited" | "cooldown" | "ineligible" | "unavailable", "resets_left": 0 }
+
+    internal sealed record ClaudeResetGrant(string Id, string Label, int ResetsLeft, string? EndsAt, bool UsableNow);
+
+    internal static List<ClaudeResetGrant> ParseClaudeResetGrants(JsonNode? block, DateTimeOffset? now = null)
+    {
+        var result = new List<ClaudeResetGrant>();
+        try
+        {
+            if (block is not JsonObject || block["eligible"]?.GetValue<bool>() != true) return result;
+            var at = now ?? DateTimeOffset.UtcNow;
+            // The server only accepts claims for next_grant_id; other grants are listed but not redeemable yet.
+            var nextId = block["next_grant_id"]?.GetValue<string>();
+            foreach (var g in block["grants"]?.AsArray() ?? new JsonArray())
+            {
+                try
+                {
+                    var id = g?["id"]?.GetValue<string>();
+                    if (string.IsNullOrEmpty(id)) continue;
+                    var left = g!["resets_left"]?.GetValue<int>() ?? 0;
+                    if (left <= 0 || g["paused"]?.GetValue<bool>() == true) continue;
+                    var endsAt = g["ends_at"]?.GetValue<string>();
+                    if (DateTimeOffset.TryParse(endsAt, out var end) && end <= at) continue;
+                    result.Add(new ClaudeResetGrant(
+                        id,
+                        g["label"]?.GetValue<string>() ?? "",
+                        left,
+                        endsAt,
+                        g["usable_now"]?.GetValue<bool>() == true && (nextId is null || nextId == id)));
+                }
+                catch { /* malformed grant — skip it, keep the rest */ }
+            }
+        }
+        catch { /* malformed block — treat as no resets */ }
+        return result;
+    }
+
+    /// <summary>Spends one saved Claude limit reset, then re-fetches usage so the bars and the remaining grants update.</summary>
+    public async Task ConsumeClaudeResetCreditAsync(ProviderAccountViewModel account, string grantId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(grantId)) return;
+
+        var token = ReadAccessToken("claude", account.Email);
+        if (token is null) return;
+
+        try
+        {
+            token = await RefreshClaudeTokenIfNeededAsync(account.Email, token, ct) ?? token;
+
+            using var profileReq = new HttpRequestMessage(HttpMethod.Get, "https://api.anthropic.com/api/oauth/profile");
+            AddClaudeOAuthHeaders(profileReq, token);
+            using var profileResp = await Http.SendAsync(profileReq, ct);
+            if (!profileResp.IsSuccessStatusCode) return;
+            var profile = JsonNode.Parse(await profileResp.Content.ReadAsStringAsync(ct));
+            var orgUuid = profile?["organization"]?["uuid"]?.GetValue<string>();
+            if (string.IsNullOrEmpty(orgUuid)) return;
+
+            using var req = new HttpRequestMessage(HttpMethod.Post,
+                $"https://api.anthropic.com/api/organizations/{Uri.EscapeDataString(orgUuid)}/reset_rate_limits");
+            AddClaudeOAuthHeaders(req, token);
+            req.Content = new StringContent(
+                System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    program = "cedar_ember",
+                    grant_id = grantId,
+                    request_id = Guid.NewGuid().ToString(),
+                }),
+                Encoding.UTF8, "application/json");
+
+            using var resp = await Http.SendAsync(req, ct);
+            var respDoc = JsonNode.Parse(await resp.Content.ReadAsStringAsync(ct));
+            var code = respDoc?["result"]?.GetValue<string>();
+
+            if (resp.IsSuccessStatusCode
+                && (string.Equals(code, "reset", StringComparison.OrdinalIgnoreCase)
+                 || string.Equals(code, "already_used", StringComparison.OrdinalIgnoreCase)))
+            {
+                // Drop the spent grant right away so it can't be re-clicked if the re-fetch below fails.
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    foreach (var spent in account.ResetCredits.Where(c => c.Id == grantId).ToList())
+                        account.ResetCredits.Remove(spent);
+                });
+                await FetchClaudeAsync(account, ct); // re-fetches usage + whatever grants remain
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch { /* leave the grant in the list so the user can retry */ }
+    }
+
+    private static void AddClaudeOAuthHeaders(HttpRequestMessage req, string token)
+    {
+        req.Headers.Add("Authorization", $"Bearer {token}");
+        req.Headers.Add("Accept", "application/json");
+        req.Headers.Add("anthropic-beta", "oauth-2025-04-20");
+        req.Headers.Add("User-Agent", "TunnelAgent/1.0");
+    }
+
+    /// <summary>Redeems a saved rate-limit reset for whichever provider owns the account.</summary>
+    public Task ConsumeResetCreditAsync(string providerId, ProviderAccountViewModel account, string creditId,
+        CancellationToken ct = default) => providerId switch
+    {
+        "claude" => ConsumeClaudeResetCreditAsync(account, creditId, ct),
+        "codex"  => ConsumeCodexResetCreditAsync(account, creditId, ct),
+        _        => Task.CompletedTask,
+    };
 
     private async Task<string?> RefreshClaudeTokenIfNeededAsync(
         string email, string currentToken, CancellationToken ct, bool force = false)
@@ -355,7 +484,7 @@ public sealed class QuotaFetchService
             var available = (doc?["credits"]?.AsArray() ?? new JsonArray())
                 .Where(c => string.Equals(c?["status"]?.GetValue<string>(), "available", StringComparison.OrdinalIgnoreCase)
                          && !string.IsNullOrEmpty(c?["id"]?.GetValue<string>()))
-                .Select(c => new CodexResetCreditViewModel(
+                .Select(c => new QuotaResetCreditViewModel(
                     account,
                     c!["id"]!.GetValue<string>(),
                     c["title"]?.GetValue<string>() ?? "Rate limit reset",
@@ -364,9 +493,9 @@ public sealed class QuotaFetchService
 
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
-                account.CodexResetCredits.Clear();
+                account.ResetCredits.Clear();
                 foreach (var credit in available)
-                    account.CodexResetCredits.Add(credit);
+                    account.ResetCredits.Add(credit);
             });
         }
         catch (OperationCanceledException) { throw; }
@@ -1916,7 +2045,7 @@ public sealed class QuotaFetchService
         return FormatDiff(dt - DateTimeOffset.UtcNow);
     }
 
-    /// <summary>Codex saved resets *expire* rather than reset — same countdown math as FormatResetAtIso, different copy.</summary>
+    /// <summary>Saved resets *expire* rather than reset — same countdown math as FormatResetAtIso, different copy.</summary>
     private static string FormatExpiresAtIso(string? iso)
     {
         if (string.IsNullOrEmpty(iso)) return "";
