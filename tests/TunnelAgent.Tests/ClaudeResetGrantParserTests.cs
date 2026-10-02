@@ -48,6 +48,22 @@ public sealed class ClaudeResetGrantParserTests
         Assert.Equal([new QuotaFetchService.ClaudeResetGrant("at_limit_only", "", 1, null, false)], grants);
     }
 
+    [Fact]
+    public void ParseClaudeResetGrants_MalformedGrant_KeepsOtherGrants()
+    {
+        var block = JsonNode.Parse("""
+            { "eligible": true,
+              "grants": [
+                { "id": "bad", "resets_left": "lots", "usable_now": true },
+                { "id": "good", "resets_left": 1, "usable_now": true }
+              ] }
+            """);
+
+        var grants = QuotaFetchService.ParseClaudeResetGrants(block, Now);
+
+        Assert.Equal([new QuotaFetchService.ClaudeResetGrant("good", "", 1, null, true)], grants);
+    }
+
     [Theory]
     [InlineData("""{ "eligible": false, "grants": [{ "id": "a", "resets_left": 1, "usable_now": true }] }""")]
     [InlineData("""{ "eligible": true, "grants": "oops" }""")]

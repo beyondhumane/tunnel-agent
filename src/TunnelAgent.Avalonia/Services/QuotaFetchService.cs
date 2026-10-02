@@ -246,18 +246,22 @@ public sealed class QuotaFetchService
             var nextId = block["next_grant_id"]?.GetValue<string>();
             foreach (var g in block["grants"]?.AsArray() ?? new JsonArray())
             {
-                var id = g?["id"]?.GetValue<string>();
-                if (string.IsNullOrEmpty(id)) continue;
-                var left = g!["resets_left"]?.GetValue<int>() ?? 0;
-                if (left <= 0 || g["paused"]?.GetValue<bool>() == true) continue;
-                var endsAt = g["ends_at"]?.GetValue<string>();
-                if (DateTimeOffset.TryParse(endsAt, out var end) && end <= at) continue;
-                result.Add(new ClaudeResetGrant(
-                    id,
-                    g["label"]?.GetValue<string>() ?? "",
-                    left,
-                    endsAt,
-                    g["usable_now"]?.GetValue<bool>() == true && (nextId is null || nextId == id)));
+                try
+                {
+                    var id = g?["id"]?.GetValue<string>();
+                    if (string.IsNullOrEmpty(id)) continue;
+                    var left = g!["resets_left"]?.GetValue<int>() ?? 0;
+                    if (left <= 0 || g["paused"]?.GetValue<bool>() == true) continue;
+                    var endsAt = g["ends_at"]?.GetValue<string>();
+                    if (DateTimeOffset.TryParse(endsAt, out var end) && end <= at) continue;
+                    result.Add(new ClaudeResetGrant(
+                        id,
+                        g["label"]?.GetValue<string>() ?? "",
+                        left,
+                        endsAt,
+                        g["usable_now"]?.GetValue<bool>() == true && (nextId is null || nextId == id)));
+                }
+                catch { /* malformed grant — skip it, keep the rest */ }
             }
         }
         catch { /* malformed block — treat as no resets */ }
@@ -303,7 +307,15 @@ public sealed class QuotaFetchService
             if (resp.IsSuccessStatusCode
                 && (string.Equals(code, "reset", StringComparison.OrdinalIgnoreCase)
                  || string.Equals(code, "already_used", StringComparison.OrdinalIgnoreCase)))
+            {
+                // Drop the spent grant right away so it can't be re-clicked if the re-fetch below fails.
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    foreach (var spent in account.ResetCredits.Where(c => c.Id == grantId).ToList())
+                        account.ResetCredits.Remove(spent);
+                });
                 await FetchClaudeAsync(account, ct); // re-fetches usage + whatever grants remain
+            }
         }
         catch (OperationCanceledException) { throw; }
         catch { /* leave the grant in the list so the user can retry */ }

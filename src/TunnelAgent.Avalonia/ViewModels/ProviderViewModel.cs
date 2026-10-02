@@ -110,12 +110,9 @@ public sealed class QuotaResetCreditViewModel : ViewModelBase
         IsUsableNow = isUsableNow;
         _expiresRaw = expiresRaw;
         LocalizationService.Instance.PropertyChanged += (_, _) => OnPropertyChanged(nameof(ExpiresLabel));
-        account.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(ProviderAccountViewModel.IsResettingQuota))
-                OnPropertyChanged(nameof(CanRedeem));
-        };
     }
+
+    internal void NotifyCanRedeemChanged() => OnPropertyChanged(nameof(CanRedeem));
 }
 
 public partial class ProviderAccountViewModel : ViewModelBase
@@ -181,6 +178,12 @@ public partial class ProviderAccountViewModel : ViewModelBase
     [ObservableProperty] private bool _isResetSectionExpanded;
 
     [ObservableProperty] private bool _isResettingQuota;
+
+    partial void OnIsResettingQuotaChanged(bool value)
+    {
+        foreach (var c in ResetCredits)
+            c.NotifyCanRedeemChanged();
+    }
 
     public ProviderAccountViewModel(string providerId, string apiKey, string label, bool isDisabled)
     {
