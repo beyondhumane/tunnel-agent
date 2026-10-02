@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.1.9] - 2026-10-02
+
 ### Added
 
 - **Claude saved limit resets ("Reset for free")** (`QuotaFetchService`, `ProviderViewModel`, `QuotaView`, `MainWindowViewModel`): Claude accounts with a saved reset now show the same collapsible "Usage limit resets" section as Codex, listing each grant (title + expiry) with a "Use reset" button. Grants that can only be spent once a limit is hit are listed with the button disabled. Uses the same Anthropic endpoints as Claude Code's `/limit-reset`; consuming one re-fetches usage so the bars update immediately. The Codex reset view model and strings are now shared between both providers.
@@ -1072,6 +1074,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Engine always reads version from binary at startup (never trusts cached value)
 - Update notification triggers reactively from `StateChanged` rather than at a fixed startup point
 
+[1.1.9]: https://github.com/Villoh/tunnel-agent/compare/v1.1.8...v1.1.9
 [1.1.8]: https://github.com/Villoh/tunnel-agent/compare/v1.1.7...v1.1.8
 [1.1.7]: https://github.com/Villoh/tunnel-agent/compare/v1.1.6...v1.1.7
 [1.1.6]: https://github.com/Villoh/tunnel-agent/compare/v1.1.5...v1.1.6
