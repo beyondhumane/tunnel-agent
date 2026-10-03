@@ -18,7 +18,7 @@ coding agent ──► http://127.0.0.1:<port>/v1 ──► engine ──► you
                                                  9Router)
 ```
 
-Tunnel Agent itself does not proxy model traffic. It downloads, configures, starts and monitors the engines, stores their settings and gives you a window to manage accounts, quotas, fallbacks and agents.
+Model traffic normally goes through the local engines. Tunnel Agent downloads, configures, starts and monitors them, stores their settings and gives you a window to manage accounts, quotas, fallbacks and agents. Its experimental [CLIProxyAPI fallback](fallback.md) adds a local routing bridge in front of that engine.
 
 ## Engines
 

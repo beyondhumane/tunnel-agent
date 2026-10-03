@@ -18,7 +18,7 @@ programación          (endpoint local)                (CLIProxyAPI,    (OAuth, 
  Codex, OpenCode…)                                     9Router)
 ```
 
-Tunnel Agent no hace de proxy del tráfico de los modelos. Descarga, configura, arranca y supervisa los motores, guarda sus ajustes y te da una ventana para gestionar cuentas, cuotas, fallbacks y agentes.
+El tráfico de modelos pasa normalmente por los motores locales. Tunnel Agent los descarga, configura, arranca y supervisa, guarda sus ajustes y te da una ventana para gestionar cuentas, cuotas, fallbacks y agentes. Su [fallback experimental de CLIProxyAPI](fallback.md) añade un puente local de enrutamiento delante de ese motor.
 
 ## Motores
 
