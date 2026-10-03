@@ -5,6 +5,8 @@ import { createRoot, hydrateRoot } from 'react-dom/client';
 import './index.css';
 import { Site } from './App';
 
+document.documentElement.setAttribute('data-ready', '');
+
 const root = document.getElementById('root')!;
 const app = (
   <StrictMode>

@@ -1,6 +1,21 @@
 import { useEffect, useRef, useState, type CSSProperties, type ElementType, type ReactNode } from 'react';
 
-export const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+export const reducedMotion = () => typeof window !== 'undefined' && window.matchMedia(REDUCE).matches;
+
+const REDUCE = '(prefers-reduced-motion: reduce)';
+
+/** Live `prefers-reduced-motion` preference; false during SSR. */
+export function useReducedMotion() {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(REDUCE);
+    const sync = () => setReduced(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+  return reduced;
+}
 
 let io: IntersectionObserver | undefined;
 const observer = () =>

@@ -11,7 +11,9 @@
     <link rel="icon" href="%BASE_URL%favicon.ico" sizes="any" />
     <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon.png" />
     <script>
-      document.documentElement.classList.add("js");
+      var de = document.documentElement;
+      de.classList.add("js");
+      setTimeout(function () { if (!de.hasAttribute("data-ready")) de.classList.remove("js"); }, 3000);
       try {
         var t = localStorage.getItem("ta-theme");
         var dark = t === "dark" || (t !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);

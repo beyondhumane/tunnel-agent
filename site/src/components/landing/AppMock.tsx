@@ -3,7 +3,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { LogoMark } from '../Logo';
 import { AGENTS, PROVIDERS } from './brands';
 import { BrandIcon } from './ui';
-import { CountUp, reducedMotion, useInView } from '@/lib/motion';
+import { CountUp, useInView, useReducedMotion } from '@/lib/motion';
 import { VERSION } from '@/lib/site';
 
 type View = 'home' | 'providers' | 'quota' | 'fallback' | 'agents';
@@ -33,15 +33,13 @@ export function AppMock() {
   const [auto, setAuto] = useState(true);
   const [ref, inView] = useInView<HTMLDivElement>();
 
-  useEffect(() => {
-    if (reducedMotion()) setAuto(false);
-  }, []);
+  const reduced = useReducedMotion();
 
   useEffect(() => {
-    if (!auto || !inView) return;
+    if (!auto || !inView || reduced) return;
     const t = setTimeout(() => setView((v) => TOUR[(TOUR.indexOf(v) + 1) % TOUR.length]), 4500);
     return () => clearTimeout(t);
-  }, [auto, inView, view]);
+  }, [auto, inView, reduced, view]);
 
   return (
     <div
@@ -135,11 +133,12 @@ function Dot({ on, off = 'bg-faint' }: { on: boolean; off?: string }) {
 
 function HomeView() {
   const [live, setLive] = useState(0);
+  const reduced = useReducedMotion();
   useEffect(() => {
-    if (reducedMotion()) return;
+    if (reduced) return;
     const t = setInterval(() => setLive((n) => n + 1 + Math.floor(Math.random() * 4)), 1400);
     return () => clearInterval(t);
-  }, []);
+  }, [reduced]);
   const stats = [
     { k: 'Requests', v: 12480 + live, f: (n: number) => Math.round(n).toLocaleString('en-US') },
     { k: 'Tokens', v: 38.2 + live * 0.004, f: (n: number) => `${n.toFixed(1)}M` },

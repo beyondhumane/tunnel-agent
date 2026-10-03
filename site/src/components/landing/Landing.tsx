@@ -6,7 +6,7 @@ import { AppleIcon, GitHubIcon, LinuxIcon, WindowsIcon } from '../icons';
 import { AppMock } from './AppMock';
 import { AGENTS, IDES, PROVIDERS } from './brands';
 import { BrandIcon, Endpoint, Section } from './ui';
-import { Reveal, Tilt, reducedMotion, spotlight, useInView } from '@/lib/motion';
+import { Reveal, Tilt, spotlight, useInView, useReducedMotion } from '@/lib/motion';
 import { docPath } from '@/lib/router';
 import { DOWNLOADS, RELEASES_URL, REPO_URL, url, VERSION } from '@/lib/site';
 import agentsShot from '../../../../assets/agents.png';
@@ -350,11 +350,8 @@ function Tour() {
   const [paused, setPaused] = useState(false);
   const [ref, inView] = useInView<HTMLDivElement>();
   const shot = SHOTS.find((s) => s.id === active)!;
-  const playing = auto && inView && !paused;
-
-  useEffect(() => {
-    if (reducedMotion()) setAuto(false);
-  }, []);
+  const reduced = useReducedMotion();
+  const playing = auto && inView && !paused && !reduced;
 
   useEffect(() => {
     if (!playing) return;
@@ -383,11 +380,11 @@ function Tour() {
             }`}
           >
             {s.label}
-            {s.id === active && auto && (
+            {s.id === active && playing && (
               <span
                 key={active}
                 className="animate-progress absolute inset-x-0 bottom-0 h-0.5 origin-left bg-white/70"
-                style={{ '--dur': `${TOUR_MS}ms`, animationPlayState: playing ? 'running' : 'paused' } as React.CSSProperties}
+                style={{ '--dur': `${TOUR_MS}ms` } as React.CSSProperties}
                 aria-hidden="true"
               />
             )}
