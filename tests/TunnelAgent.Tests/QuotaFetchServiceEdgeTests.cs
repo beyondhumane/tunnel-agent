@@ -166,4 +166,15 @@ public sealed class QuotaFetchServiceEdgeTests
 
         Assert.Equal("sk-ant-oat", service.ReadAccessToken("claude", "name@domain.com"));
     }
+
+    [Fact]
+    public void ReadCodexToken_LegacyFilenameWithoutJsonEmail_ReturnsToken()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(temp.File("codex-name@domain.com-plus.json"),
+            new JsonObject { ["access_token"] = "codex-token" }.ToJsonString());
+        var service = new QuotaFetchService(temp.Path);
+
+        Assert.Equal("codex-token", service.ReadCodexToken("name@domain.com").token);
+    }
 }

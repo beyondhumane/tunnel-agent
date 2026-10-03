@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Quota "authentication token is unavailable" with newer CLIProxyAPI auth files** (`OAuthTokenDetector`, `QuotaFetchService`): CLIProxyAPI now names token files `{provider}-{id}-{email}[-{plan}].json` (e.g. `claude-f9c692a7-me@example.com.json`), so the Claude and Codex quota readers, which looked for `{provider}-{email}*.json`, no longer found the token of a signed-in account. Token files are now matched by email with or without the id (or by the JSON `email` field), the email and plan are parsed from the new filenames, and a file without an access token no longer stops the search.
+- **Quota "authentication token is unavailable" with newer CLIProxyAPI auth files** (`OAuthTokenDetector`, `QuotaFetchService`): CLIProxyAPI now names token files `{provider}-{id}-{email}[-{plan}].json` (e.g. `claude-f9c692a7-me@example.com.json`), so the Claude and Codex quota readers, which looked for `{provider}-{email}*.json`, no longer found the token of a signed-in account. Token files are now matched by their JSON `email` field (falling back to the exact legacy filename), the plan badge is read from both filename formats, an account whose email is a prefix of another's (`a@x.com` / `a@x.com.au`) no longer also matches the other one's file when disabling or removing it, and a file without an access token no longer stops the search.
 
 ## [1.1.10] - 2026-10-02
 

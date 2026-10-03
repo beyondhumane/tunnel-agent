@@ -758,19 +758,15 @@ public sealed class QuotaFetchService
         };
     }
 
-    private (string? token, string? accountId, DateTimeOffset lastRefresh) ReadCodexToken(string email)
+    internal (string? token, string? accountId, DateTimeOffset lastRefresh) ReadCodexToken(string email)
     {
-        if (!Directory.Exists(_authDir)) return (null, null, DateTimeOffset.MinValue);
-        foreach (var file in Directory.GetFiles(_authDir, "codex-*.json"))
+        var match = string.IsNullOrEmpty(email) ? null : email;
+        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, "codex", match))
         {
             try
             {
                 var doc = JsonNode.Parse(File.ReadAllText(file))?.AsObject();
                 if (doc is null) continue;
-                var fileEmail = doc["email"]?.GetValue<string>() ?? "";
-                if (!string.IsNullOrEmpty(email) &&
-                    !string.Equals(fileEmail, email, StringComparison.OrdinalIgnoreCase))
-                    continue;
                 var token     = doc["access_token"]?.GetValue<string>();
                 if (token is null) continue;
                 var accountId = doc["account_id"]?.GetValue<string>();

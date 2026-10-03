@@ -165,11 +165,12 @@ public sealed class OAuthTokenDetectorEdgeTests
     }
 
     [Fact]
-    public void GetAccounts_HashedFilenameWithoutJsonFields_ExtractsEmailAndPlan()
+    public void GetAccounts_HashedFilename_UsesJsonEmailAndFilenamePlan()
     {
         using var temp = new TestTempDirectory();
         File.WriteAllText(temp.File("codex-8017738c-name@domain.com-prolite.json"), new JsonObject
         {
+            ["email"] = "name@domain.com",
             ["access_token"] = "token"
         }.ToJsonString());
         var detector = new OAuthTokenDetector(temp.Path);
@@ -181,16 +182,50 @@ public sealed class OAuthTokenDetectorEdgeTests
     }
 
     [Fact]
-    public void GetTokenFiles_HashedFilename_MatchesEmail()
+    public void GetAccounts_LegacyEmailStartingWithHexWithoutJsonEmail_KeepsFullEmail()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(temp.File("codex-deadbeef-user@example.com-plus.json"), new JsonObject
+        {
+            ["access_token"] = "token"
+        }.ToJsonString());
+        var detector = new OAuthTokenDetector(temp.Path);
+
+        var account = Assert.Single(detector.GetAccounts()["codex"]);
+
+        Assert.Equal("deadbeef-user@example.com", account.Email);
+        Assert.Equal("Plus", account.Plan);
+    }
+
+    [Fact]
+    public void GetTokenFiles_HashedFilename_MatchesJsonEmail()
     {
         using var temp = new TestTempDirectory();
         var file = temp.File("claude-f9c692a7-name@domain.com.json");
-        File.WriteAllText(file, new JsonObject { ["access_token"] = "token" }.ToJsonString());
+        File.WriteAllText(file, new JsonObject { ["email"] = "name@domain.com", ["access_token"] = "token" }.ToJsonString());
         File.WriteAllText(temp.File("claude-0a1b2c3d-other@domain.com.json"),
-            new JsonObject { ["access_token"] = "other" }.ToJsonString());
+            new JsonObject { ["email"] = "other@domain.com", ["access_token"] = "other" }.ToJsonString());
 
         var files = OAuthTokenDetector.GetTokenFiles(temp.Path, "claude", "name@domain.com");
 
         Assert.Equal([file], files);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void GetTokenFiles_EmailPrefixOfAnotherAccount_MatchesOnlyExactAccount(bool withJsonEmail)
+    {
+        using var temp = new TestTempDirectory();
+        JsonObject Doc(string email) => withJsonEmail
+            ? new JsonObject { ["email"] = email, ["access_token"] = "token" }
+            : new JsonObject { ["access_token"] = "token" };
+        var shortFile = temp.File("codex-a@x.com-plus.json");
+        File.WriteAllText(shortFile, Doc("a@x.com").ToJsonString());
+        File.WriteAllText(temp.File("codex-a@x.com.au-plus.json"), Doc("a@x.com.au").ToJsonString());
+
+        var files = OAuthTokenDetector.GetTokenFiles(temp.Path, "codex", "a@x.com");
+
+        Assert.Equal([shortFile], files);
     }
 }
