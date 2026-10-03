@@ -6,11 +6,11 @@ import { LangToggle } from './LangToggle';
 import { ThemeToggle } from './ThemeToggle';
 import { useI18n } from '@/lib/i18n';
 import { docPath, useRoute } from '@/lib/router';
-import { REPO_URL, url } from '@/lib/site';
+import { REPO_URL } from '@/lib/site';
 
 export function Navbar() {
   const route = useRoute();
-  const { t } = useI18n();
+  const { t, url } = useI18n();
   const LINKS = [
     { label: t.nav.features, href: '/#features' },
     { label: t.nav.engines, href: '/#engines' },

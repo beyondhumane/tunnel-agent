@@ -5,7 +5,7 @@ order: 9
 ---
 # Data and privacy
 
-Your settings and credentials stay on your machine. Tunnel Agent talks to GitHub to download releases and to your providers on your behalf; the project runs no server of its own.
+Your settings and credential files stay on your machine. Engines send prompts to your selected upstream providers, whose data policies apply. Tunnel Agent contacts GitHub for releases, npm for 9Router and models.dev for model pricing; the project runs no proxy service of its own.
 
 ## Settings
 
@@ -36,4 +36,6 @@ Perplexity session tokens are stored one file per account under `perplexity-acco
 
 ## Resetting
 
-**Reset all credentials** and **Reset session accounts** in [Configuration](configuration.md) back up the files to a timestamped `.backup/` folder before deleting them.
+**Reset all credentials** and **Reset session accounts** in [Configuration](configuration.md) back up files under `credential-backups/<timestamp>/` in the app's local data directory before deleting them. Perplexity copies use a `perplexity/` subfolder. These copies also contain plain-text credentials; Unix files are owner-only (`0600`), while Windows uses the user profile's permissions.
+
+Backups older than seven days are pruned at provider initialization and when backup/reset operations run, not by a continuous timer. Manual recovery is possible from the remaining files; there is no in-app restore action. These credential backups are separate from the [coding agent configuration backups](agents.md).

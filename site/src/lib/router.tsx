@@ -2,13 +2,18 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react';
 import { DOCS } from '@/lib/docs';
 import { BASE } from '@/lib/site';
+import type { Lang } from '@/lib/i18n';
 
 export type Route = { view: 'home' } | { view: 'docs'; slug: string } | { view: 'missing' };
 
 export const docPath = (slug = DOCS[0].slug) => `/docs/${slug}/`;
 
-export function routePath(route: Route): string {
-  return route.view === 'docs' ? docPath(route.slug) : '/';
+export function localizedPath(path: string, lang: Lang): string {
+  return lang === 'es' ? `/es${path}` : path;
+}
+
+export function routePath(route: Route, lang: Lang = 'en'): string {
+  return localizedPath(route.view === 'docs' ? docPath(route.slug) : '/', lang);
 }
 
 const strip = (pathname: string) => {
@@ -18,12 +23,17 @@ const strip = (pathname: string) => {
 
 export function parseRoute(pathname: string): Route {
   const parts = strip(pathname).replace(/index\.html$/, '').split('/').filter(Boolean);
+  if (parts[0] === 'es') parts.shift();
   if (parts.length === 0) return { view: 'home' };
   if (parts[0] === 'docs' && parts.length <= 2) {
     const slug = parts[1] ?? DOCS[0].slug;
     if (DOCS.some((p) => p.slug === slug)) return { view: 'docs', slug };
   }
   return { view: 'missing' };
+}
+
+export function langFromPath(pathname: string): Lang {
+  return /^\/es(?:\/|$)/.test(strip(pathname)) ? 'es' : 'en';
 }
 
 const RouterContext = createContext<{ route: Route; hash: string }>({ route: { view: 'home' }, hash: '' });
@@ -54,6 +64,7 @@ export function RouterProvider({ path, children }: { path: string; children: Rea
       const u = new URL(a.href, window.location.href);
       if (u.origin !== window.location.origin || /\.[a-z0-9]+$/i.test(u.pathname)) return;
       if (!u.pathname.startsWith(BASE)) return;
+      if (langFromPath(u.pathname) !== langFromPath(window.location.pathname)) return;
       e.preventDefault();
       navigate(u);
     };

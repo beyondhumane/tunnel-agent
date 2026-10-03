@@ -133,11 +133,6 @@
 }
 
 /* Scroll reveals only hide content once JS is running, so prerendered HTML stays readable. */
-/* Non-English visitors get a client render; hide the English prerender until it lands. */
-.lang-pending #root {
-  visibility: hidden;
-}
-
 .js .reveal {
   opacity: 0;
   transform: translate3d(0, 24px, 0);

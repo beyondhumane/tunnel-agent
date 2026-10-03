@@ -1,9 +1,8 @@
 import { docPath } from '@/lib/router';
-import { url } from '@/lib/site';
 import { useI18n } from '@/lib/i18n';
 
 export function NotFound() {
-  const { t } = useI18n();
+  const { t, url } = useI18n();
   return (
     <section className="mx-auto flex max-w-xl flex-col items-center px-4 py-32 text-center">
       <p className="font-mono text-sm text-accent">404</p>

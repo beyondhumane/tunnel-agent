@@ -5,7 +5,7 @@ order: 9
 ---
 # Datos y privacidad
 
-Tus ajustes y credenciales se quedan en tu equipo. Tunnel Agent habla con GitHub para descargar releases y con tus proveedores en tu nombre; el proyecto no tiene ningún servidor propio.
+Tus ajustes y ficheros de credenciales se quedan en tu equipo. Los motores envían los prompts al proveedor elegido y se aplican sus políticas de datos. Tunnel Agent contacta con GitHub para las releases, npm para 9Router y models.dev para los precios de modelos; el proyecto no aloja un servicio de proxy propio.
 
 ## Ajustes
 
@@ -36,4 +36,6 @@ Los tokens de sesión de Perplexity se guardan en un fichero por cuenta dentro d
 
 ## Restablecer
 
-**Restablecer todas las credenciales** y **Restablecer cuentas de sesión**, en [Configuración](configuration.md), hacen una copia de los ficheros en una carpeta `.backup/` con fecha y hora antes de borrarlos.
+**Restablecer todas las credenciales** y **Restablecer cuentas de sesión**, en [Configuración](configuration.md), copian los ficheros a `credential-backups/<marca-de-tiempo>/` dentro del directorio de datos locales de la app antes de borrarlos. Las copias de Perplexity usan una subcarpeta `perplexity/`. También contienen credenciales en texto plano; en Unix los ficheros son exclusivos del usuario (`0600`) y en Windows se usan los permisos del perfil de usuario.
+
+Las copias de más de siete días se eliminan al inicializar los proveedores y al ejecutar operaciones de copia/restablecimiento, no con un temporizador continuo. Es posible recuperar manualmente los ficheros restantes; no hay restauración desde la app. Estas copias son independientes de las [copias de configuración de agentes](agents.md).

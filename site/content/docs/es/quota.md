@@ -23,13 +23,15 @@ Cada cuenta lista sus ventanas, por ejemplo **Principal (5h)** y **Semanal**, co
 
 Usa el botón de actualizar de una cuenta, o **Actualizar todo**, para obtener valores nuevos.
 
+Las actualizaciones se ejecutan con eventos compatibles de la app (como el arranque, la primera visita a Cuota o la conexión de una cuenta) y peticiones manuales, no mediante sondeo continuo. Las ventanas y métricas dependen del proveedor; no todas las cuentas tienen ventanas de cinco horas y semanales.
+
 ## Cuando algo falla
 
 | Mensaje | Qué hacer |
 | --- | --- |
 | La autenticación ha caducado | Vuelve a iniciar sesión en el proveedor y actualiza. |
 | No se encontraron datos de autenticación locales | Abre el IDE, inicia sesión y actualiza. |
-| La API de cuota tiene limitación de peticiones | Tunnel Agent muestra los últimos valores y reintenta solo pasados unos minutos. |
+| La API de cuota tiene limitación de peticiones | Puede mostrar los últimos valores conocidos. Espera a que termine el periodo de espera y actualiza otra vez. |
 | No hay datos de cuota disponibles | La cuenta no tiene un plan activo o el proveedor no ha devuelto uso. |
 
 > [!TIP]

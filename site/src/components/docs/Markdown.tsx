@@ -4,13 +4,14 @@ import type { Token, Tokens } from 'marked';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { headingSlug } from '@/lib/docs';
-import { url } from '@/lib/site';
 import { useI18n } from '@/lib/i18n';
 
 /** Doc-to-doc links are written as `agents.md#section` in the sources. */
-function href(target: string) {
+function DocLink({ target, children }: { target: string; children: ReactNode }) {
+  const { url } = useI18n();
   const doc = /^([a-z0-9-]+)\.md(#[a-z0-9-]+)?$/.exec(target);
-  return doc ? url(`/docs/${doc[1]}/${doc[2] ?? ''}`) : target;
+  const href = doc ? url(`/docs/${doc[1]}/${doc[2] ?? ''}`) : target;
+  return <a href={href} {...(/^https?:/.test(href) ? { target: '_blank', rel: 'noreferrer' } : {})}>{children}</a>;
 }
 
 function inline(tokens: Token[] = []): ReactNode[] {
@@ -24,12 +25,10 @@ function inline(tokens: Token[] = []): ReactNode[] {
         return <code key={i}>{decode((t as Tokens.Codespan).text)}</code>;
       case 'link': {
         const l = t as Tokens.Link;
-        const h = href(l.href);
-        const external = /^https?:/.test(h);
         return (
-          <a key={i} href={h} {...(external ? { target: '_blank', rel: 'noreferrer' } : {})}>
+          <DocLink key={i} target={l.href}>
             {inline(l.tokens)}
-          </a>
+          </DocLink>
         );
       }
       case 'br':

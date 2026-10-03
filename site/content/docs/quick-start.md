@@ -16,11 +16,11 @@ That's it: run your agent as usual and its requests go through the local endpoin
 
 ## Using any other client
 
-Anything that speaks the OpenAI API works. Copy the endpoint from the Providers header and an API key from **Configuration → CLIProxyAPI → API keys**:
+Use a client that supports the selected engine's OpenAI-compatible endpoints and models. Copy the endpoint from the Providers header and a local client key from **Configuration → CLIProxyAPI → API keys**:
 
 ```bash
 export OPENAI_BASE_URL=http://127.0.0.1:8317/v1
-export OPENAI_API_KEY=<a key from Configuration>
+export OPENAI_API_KEY='your-local-client-key'
 
 curl "$OPENAI_BASE_URL/models" -H "Authorization: Bearer $OPENAI_API_KEY"
 ```

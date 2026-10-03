@@ -14,14 +14,6 @@
       var de = document.documentElement;
       de.classList.add("js");
       setTimeout(function () { if (!de.hasAttribute("data-ready")) de.classList.remove("js"); }, 3000);
-      var l = "";
-      try { l = localStorage.getItem("ta-lang") || ""; } catch (e) {}
-      if (!l) {
-        var ls = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""];
-        for (var i = 0; i < ls.length && !l; i++) { var b = ls[i].slice(0, 2).toLowerCase(); if (b === "en" || b === "es") l = b; }
-      }
-      if (l === "es") { de.lang = "es"; de.classList.add("lang-pending"); }
-      setTimeout(function () { de.classList.remove("lang-pending"); }, 3000);
       try {
         var t = localStorage.getItem("ta-theme");
         var dark = t === "dark" || (t !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);

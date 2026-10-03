@@ -21,7 +21,7 @@ function version(): string {
 // SITE_BASE is the path the site is served from ("/tunnel-agent/" on a GitHub
 // Pages project site, "/" on a custom domain); SITE_URL is its origin.
 const base = process.env.SITE_BASE ?? "/";
-const siteUrl = (process.env.SITE_URL ?? "https://beyondhumane.github.io").replace(/\/$/, "");
+const siteUrl = (process.env.SITE_URL ?? "https://tunnel-agent.beyondhumane.com").replace(/\/$/, "");
 
 export default defineConfig({
   base,

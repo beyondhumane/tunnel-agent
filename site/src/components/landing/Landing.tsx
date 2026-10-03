@@ -9,7 +9,7 @@ import { AppWindow, type WindowView } from './AppWindow';
 import { BrandIcon, Endpoint, Eyebrow, Section } from './ui';
 import { Reveal, Tilt, spotlight, useInView, useReducedMotion } from '@/lib/motion';
 import { docPath } from '@/lib/router';
-import { DOWNLOADS, RELEASES_URL, REPO_URL, url, VERSION } from '@/lib/site';
+import { DOWNLOADS, RELEASES_URL, REPO_URL, VERSION } from '@/lib/site';
 import { useI18n } from '@/lib/i18n';
 
 const btnPrimary =
@@ -28,13 +28,33 @@ export function Landing() {
       <Agents />
       <Tour />
       <Downloads />
+      <Faq />
       <Cta />
     </>
   );
 }
 
+function Faq() {
+  const { t, url } = useI18n();
+  return (
+    <Section id="faq" eyebrow={t.faq.eyebrow} title={t.faq.title} intro={t.faq.intro}>
+      <div className="mx-auto max-w-3xl space-y-3">
+        {t.faq.items.map((item, i) => (
+          <Reveal key={item.question} delay={i * 40} className="card-x rounded-2xl p-5 sm:p-6">
+            <h3 className="font-semibold">{item.question}</h3>
+            <p className="mt-3 text-sm leading-relaxed text-muted">{item.answer}</p>
+            <a href={url(docPath(item.doc))} className="mt-3 inline-flex items-center gap-1.5 text-sm text-accent hover:underline">
+              {t.faq.more} <ArrowRight className="size-3.5" />
+            </a>
+          </Reveal>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
 function Hero() {
-  const { t } = useI18n();
+  const { t, url } = useI18n();
   const h = t.hero;
   return (
     <section className="relative overflow-hidden">
@@ -293,7 +313,7 @@ function HowItWorks() {
 }
 
 function Agents() {
-  const { t } = useI18n();
+  const { t, url } = useI18n();
   const a = t.agents;
   return (
     <Section id="agents" eyebrow={a.eyebrow} title={a.title} intro={a.intro}>
@@ -406,7 +426,7 @@ const OS = [
 ] as const;
 
 function Downloads() {
-  const { t } = useI18n();
+  const { t, url } = useI18n();
   const d = t.download;
   return (
     <section id="download" className="scroll-mt-20 border-t border-line bg-side/60 backdrop-blur-sm">
@@ -415,6 +435,7 @@ function Downloads() {
           <Eyebrow>{d.eyebrow}</Eyebrow>
           <h2 className="text-gradient mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">{d.title(VERSION)}</h2>
           <p className="mt-4 text-lg text-muted">{d.intro}</p>
+          <p className="mt-3 text-sm leading-relaxed text-muted">{d.note}</p>
         </Reveal>
         <div onPointerMove={spotlight} className="mt-12 grid gap-4 lg:grid-cols-3">
           {OS.map(({ id, name, Icon }, n) => (
@@ -469,7 +490,7 @@ function Downloads() {
 }
 
 function Cta() {
-  const { t } = useI18n();
+  const { t, url } = useI18n();
   return (
     <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24">
       <Reveal className="animate-gradient relative overflow-hidden rounded-3xl bg-[linear-gradient(120deg,var(--accent),var(--accent-hover),#0F55C8,var(--accent))] bg-[length:300%_300%] px-6 py-14 text-center text-white sm:px-12">

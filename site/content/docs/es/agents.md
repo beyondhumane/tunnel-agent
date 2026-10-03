@@ -12,7 +12,7 @@ La pantalla **Agentes** detecta qué agentes de programación están instalados 
 | Agente | Fichero de configuración que se escribe |
 | --- | --- |
 | Claude Code | `~/.claude/settings.json` |
-| Codex CLI | `~/.codex/config.toml` |
+| Codex CLI | `~/.codex/config.toml` y `~/.codex/auth.json` |
 | OpenCode | `~/.config/opencode/opencode.json` |
 | Pi | `~/.pi/agent/models.json` |
 | Oh My Pi (OMP) | `~/.omp/agent/models.yml` |
@@ -32,7 +32,7 @@ El agente mostrará entonces la etiqueta **Configurado**. Usa **Restablecer conf
 
 ## Otros clientes
 
-Funciona cualquier herramienta que acepte una URL base compatible con OpenAI. Usa el endpoint del motor que quieras y una clave de **Configuración**:
+Usa un cliente que admita los endpoints compatibles con OpenAI y los modelos del motor elegido. Usa su endpoint y una clave local de cliente de **Configuración**:
 
 | Motor | URL base |
 | --- | --- |

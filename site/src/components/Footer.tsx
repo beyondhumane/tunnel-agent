@@ -2,9 +2,9 @@ import { Wordmark } from './Logo';
 import { useI18n } from '@/lib/i18n';
 import type { Dict } from '@/i18n/en';
 import { docPath } from '@/lib/router';
-import { CHANGELOG_URL, ISSUES_URL, LICENSE_URL, RELEASES_URL, REPO_URL, url, VERSION } from '@/lib/site';
+import { CHANGELOG_URL, ISSUES_URL, LICENSE_URL, RELEASES_URL, REPO_URL, VERSION } from '@/lib/site';
 
-const columns = (f: Dict['footer']) => [
+const columns = (f: Dict['footer'], url: (path: string) => string) => [
   {
     title: f.product,
     links: [
@@ -35,7 +35,7 @@ const columns = (f: Dict['footer']) => [
 ];
 
 export function Footer() {
-  const { t } = useI18n();
+  const { t, url } = useI18n();
   return (
     <footer className="border-t border-line bg-side">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 md:grid-cols-[1.4fr_repeat(3,1fr)]">
@@ -46,7 +46,7 @@ export function Footer() {
           </p>
           <p className="mt-4 font-mono text-xs text-faint">v{VERSION} · MIT</p>
         </div>
-        {columns(t.footer).map((c) => (
+        {columns(t.footer, url).map((c) => (
           <div key={c.title}>
             <h2 className="text-xs font-semibold tracking-wider text-faint uppercase">{c.title}</h2>
             <ul className="mt-3 space-y-2">
