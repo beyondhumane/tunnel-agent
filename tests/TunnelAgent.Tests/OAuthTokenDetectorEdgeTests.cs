@@ -228,4 +228,93 @@ public sealed class OAuthTokenDetectorEdgeTests
 
         Assert.Equal([shortFile], files);
     }
+
+    private static (string Acme, string Personal) WriteSameEmailClaudeAccounts(TestTempDirectory temp)
+    {
+        var acme = temp.File("claude-f9c692a7-name@domain.com.json");
+        var personal = temp.File("claude-0a1b2c3d-name@domain.com.json");
+        File.WriteAllText(acme, new JsonObject
+        {
+            ["email"] = "name@domain.com", ["access_token"] = "acme-token", ["organization_name"] = "Acme",
+        }.ToJsonString());
+        File.WriteAllText(personal, new JsonObject
+        {
+            ["email"] = "name@domain.com", ["access_token"] = "personal-token",
+        }.ToJsonString());
+        return (acme, personal);
+    }
+
+    [Fact]
+    public void GetAccounts_SameEmailInTwoOrganizations_ReturnsBothWithTheirFile()
+    {
+        using var temp = new TestTempDirectory();
+        WriteSameEmailClaudeAccounts(temp);
+
+        var accounts = new OAuthTokenDetector(temp.Path).GetAccounts()["claude"]
+            .OrderBy(a => a.TokenFile, StringComparer.Ordinal).ToList();
+
+        Assert.Equal(2, accounts.Count);
+        Assert.Equal(["claude-0a1b2c3d-name@domain.com.json", "claude-f9c692a7-name@domain.com.json"], accounts.Select(a => a.TokenFile));
+        Assert.Equal(["0a1b2c3d", "Acme"], accounts.Select(a => a.Discriminator));
+        Assert.All(accounts, a => Assert.Equal("name@domain.com", a.Email));
+    }
+
+    [Fact]
+    public void GetAccounts_LegacyHexPrefixedEmail_HasNoFileId()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(temp.File("claude-deadbeef-user@example.com.json"),
+            new JsonObject { ["email"] = "deadbeef-user@example.com", ["access_token"] = "token" }.ToJsonString());
+
+        var account = Assert.Single(new OAuthTokenDetector(temp.Path).GetAccounts()["claude"]);
+
+        Assert.Equal("", account.Discriminator);
+    }
+
+    [Fact]
+    public void SetDisabled_WithTokenFile_PatchesOnlyThatAccount()
+    {
+        using var temp = new TestTempDirectory();
+        var (acme, personal) = WriteSameEmailClaudeAccounts(temp);
+
+        new OAuthTokenDetector(temp.Path).SetDisabled("claude", "name@domain.com", true, Path.GetFileName(acme));
+
+        Assert.True(JsonNode.Parse(File.ReadAllText(acme))!["disabled"]!.GetValue<bool>());
+        Assert.Null(JsonNode.Parse(File.ReadAllText(personal))!["disabled"]);
+    }
+
+    [Theory]
+    [InlineData("claude-0a1b2c3d-name@domain.com.json", true)]
+    [InlineData("claude-gone-name@domain.com.json", false)]
+    [InlineData("codex-0a1b2c3d-name@domain.com.json", false)]
+    [InlineData("../claude-0a1b2c3d-name@domain.com.json", true)]
+    public void GetTokenFiles_WithTokenFile_ReturnsOnlyThatExistingFile(string tokenFile, bool found)
+    {
+        using var temp = new TestTempDirectory();
+        var (_, personal) = WriteSameEmailClaudeAccounts(temp);
+
+        var files = OAuthTokenDetector.GetTokenFiles(temp.Path, "claude", "name@domain.com", tokenFile);
+
+        Assert.Equal(found ? [personal] : [], files);
+    }
+
+    [Fact]
+    public void HasNewToken_DetectsNewOrRewrittenFileOnly()
+    {
+        using var temp = new TestTempDirectory();
+        var (acme, _) = WriteSameEmailClaudeAccounts(temp);
+        var detector = new OAuthTokenDetector(temp.Path);
+        var before = detector.GetTokenWriteTimes("claude");
+
+        Assert.False(OAuthTokenDetector.HasNewToken(before, detector.GetTokenWriteTimes("claude")));
+
+        File.SetLastWriteTimeUtc(acme, DateTime.UtcNow.AddMinutes(1));
+        Assert.True(OAuthTokenDetector.HasNewToken(before, detector.GetTokenWriteTimes("claude")));
+
+        var beforeNewAccount = detector.GetTokenWriteTimes("claude");
+        File.WriteAllText(temp.File("claude-11111111-new@domain.com.json"),
+            new JsonObject { ["email"] = "new@domain.com", ["access_token"] = "token" }.ToJsonString());
+        File.SetLastWriteTimeUtc(temp.File("claude-11111111-new@domain.com.json"), DateTime.UtcNow.AddMinutes(-10));
+        Assert.True(OAuthTokenDetector.HasNewToken(beforeNewAccount, detector.GetTokenWriteTimes("claude")));
+    }
 }

@@ -177,4 +177,60 @@ public sealed class QuotaFetchServiceEdgeTests
 
         Assert.Equal("codex-token", service.ReadCodexToken("name@domain.com").token);
     }
+
+    [Fact]
+    public void ReadAccessToken_SameEmailInTwoOrganizations_ReadsTheGivenFile()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(temp.File("claude-f9c692a7-name@domain.com.json"),
+            new JsonObject { ["email"] = "name@domain.com", ["access_token"] = "acme-token" }.ToJsonString());
+        File.WriteAllText(temp.File("claude-0a1b2c3d-name@domain.com.json"),
+            new JsonObject { ["email"] = "name@domain.com", ["access_token"] = "personal-token" }.ToJsonString());
+        var service = new QuotaFetchService(temp.Path);
+
+        Assert.Equal("acme-token", service.ReadAccessToken("claude", "name@domain.com", "claude-f9c692a7-name@domain.com.json"));
+        Assert.Equal("personal-token", service.ReadAccessToken("claude", "name@domain.com", "claude-0a1b2c3d-name@domain.com.json"));
+    }
+
+    [Fact]
+    public void ReadCodexToken_SameEmailInTwoWorkspaces_ReadsTheGivenFile()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(temp.File("codex-8017738c-name@domain.com-team.json"),
+            new JsonObject { ["email"] = "name@domain.com", ["access_token"] = "team-token", ["account_id"] = "team" }.ToJsonString());
+        File.WriteAllText(temp.File("codex-1234abcd-name@domain.com-plus.json"),
+            new JsonObject { ["email"] = "name@domain.com", ["access_token"] = "plus-token", ["account_id"] = "plus" }.ToJsonString());
+        var service = new QuotaFetchService(temp.Path);
+
+        var (token, accountId, _) = service.ReadCodexToken("name@domain.com", "codex-1234abcd-name@domain.com-plus.json");
+
+        Assert.Equal("plus-token", token);
+        Assert.Equal("plus", accountId);
+    }
+
+    [Fact]
+    public async Task ReadDevinAntigravityXaiTokens_SameEmail_ReadTheGivenFile()
+    {
+        using var temp = new TestTempDirectory();
+        var notExpired = DateTimeOffset.UtcNow.AddHours(1).ToString("O");
+        foreach (var (provider, id) in new[] { ("devin", "aaaaaaaa"), ("devin", "bbbbbbbb"),
+                                               ("antigravity", "aaaaaaaa"), ("antigravity", "bbbbbbbb"),
+                                               ("xai", "aaaaaaaa"), ("xai", "bbbbbbbb") })
+        {
+            File.WriteAllText(temp.File($"{provider}-{id}-name@domain.com.json"), new JsonObject
+            {
+                ["email"] = "name@domain.com",
+                ["session_token"] = $"{provider}-{id}",
+                ["access_token"] = $"{provider}-{id}",
+                ["expired"] = notExpired,
+            }.ToJsonString());
+        }
+        var service = new QuotaFetchService(temp.Path);
+
+        Assert.Equal("devin-bbbbbbbb", service.ReadDevinSessionToken("name@domain.com", "devin-bbbbbbbb-name@domain.com.json"));
+        Assert.Equal("antigravity-bbbbbbbb",
+            await service.ReadAntigravityTokenAsync("name@domain.com", CancellationToken.None, "antigravity-bbbbbbbb-name@domain.com.json"));
+        Assert.Equal("xai-bbbbbbbb",
+            await service.ReadXaiTokenAsync("name@domain.com", CancellationToken.None, "xai-bbbbbbbb-name@domain.com.json"));
+    }
 }

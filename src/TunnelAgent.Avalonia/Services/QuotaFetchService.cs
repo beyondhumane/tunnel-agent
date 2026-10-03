@@ -85,7 +85,7 @@ public sealed class QuotaFetchService
 
     private async Task FetchClaudeAsync(ProviderAccountViewModel account, CancellationToken ct, bool force)
     {
-        var key = account.Email;
+        var key = ClaudeThrottleKey(account);
         var accountLock = ClaudeThrottle.LockFor(key);
         await accountLock.WaitAsync(ct);
         try
@@ -98,9 +98,13 @@ public sealed class QuotaFetchService
         }
     }
 
+    // The usage limit is per token, so accounts sharing an email (one per organization) are throttled apart.
+    private static string ClaudeThrottleKey(ProviderAccountViewModel account) =>
+        string.IsNullOrEmpty(account.TokenFile) ? account.Email : account.TokenFile;
+
     private async Task FetchClaudeLockedAsync(ProviderAccountViewModel account, string key, CancellationToken ct, bool force)
     {
-        var token = ReadAccessToken("claude", account.Email);
+        var token = ReadAccessToken("claude", account.Email, account.TokenFile);
         if (token is null)
         {
             SetQuotaError(account, QuotaErrorTokenUnavailable("Claude"));
@@ -121,13 +125,13 @@ public sealed class QuotaFetchService
 
         try
         {
-            token = await RefreshClaudeTokenIfNeededAsync(account.Email, token, ct) ?? token;
+            token = await RefreshClaudeTokenIfNeededAsync(account.Email, token, ct, tokenFile: account.TokenFile) ?? token;
             var (status, retryAfter, body) = await SendClaudeUsageAsync(token, ct);
 
             // Reactive refresh on 401/403, then retry once with the new token
             if (status is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
             {
-                var refreshed = await RefreshClaudeTokenIfNeededAsync(account.Email, token, ct, force: true);
+                var refreshed = await RefreshClaudeTokenIfNeededAsync(account.Email, token, ct, force: true, tokenFile: account.TokenFile);
                 if (refreshed is null)
                 {
                     SetQuotaError(account, QuotaErrorAuthExpired("Claude"));
@@ -425,12 +429,12 @@ public sealed class QuotaFetchService
     {
         if (string.IsNullOrEmpty(grantId)) return;
 
-        var token = ReadAccessToken("claude", account.Email);
+        var token = ReadAccessToken("claude", account.Email, account.TokenFile);
         if (token is null) return;
 
         try
         {
-            token = await RefreshClaudeTokenIfNeededAsync(account.Email, token, ct) ?? token;
+            token = await RefreshClaudeTokenIfNeededAsync(account.Email, token, ct, tokenFile: account.TokenFile) ?? token;
 
             using var profileReq = new HttpRequestMessage(HttpMethod.Get, "https://api.anthropic.com/api/oauth/profile");
             AddClaudeOAuthHeaders(profileReq, token);
@@ -466,7 +470,7 @@ public sealed class QuotaFetchService
                     foreach (var spent in account.ResetCredits.Where(c => c.Id == grantId).ToList())
                         account.ResetCredits.Remove(spent);
                 });
-                ClaudeThrottle.Invalidate(account.Email); // cached usage and grants predate the reset
+                ClaudeThrottle.Invalidate(ClaudeThrottleKey(account)); // cached usage and grants predate the reset
                 await FetchClaudeAsync(account, ct, force: true); // re-fetches usage + whatever grants remain
             }
         }
@@ -492,14 +496,14 @@ public sealed class QuotaFetchService
     };
 
     private async Task<string?> RefreshClaudeTokenIfNeededAsync(
-        string email, string currentToken, CancellationToken ct, bool force = false)
+        string email, string currentToken, CancellationToken ct, bool force = false, string? tokenFile = null)
     {
         const string ClientId  = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
         const string Scope     = "user:profile user:inference user:sessions:claude_code user:mcp_servers user:file_upload";
         const string RefreshUrl = "https://platform.claude.com/v1/oauth/token";
 
         if (!Directory.Exists(_authDir)) return null;
-        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, "claude", email))
+        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, "claude", email, tokenFile))
         {
             try
             {
@@ -547,7 +551,7 @@ public sealed class QuotaFetchService
 
     private async Task FetchCodexAsync(ProviderAccountViewModel account, CancellationToken ct)
     {
-        var (token, accountId, lastRefresh) = ReadCodexToken(account.Email);
+        var (token, accountId, lastRefresh) = ReadCodexToken(account.Email, account.TokenFile);
         if (token is null)
         {
             SetQuotaError(account, QuotaErrorTokenUnavailable("Codex"));
@@ -556,7 +560,7 @@ public sealed class QuotaFetchService
 
         try
         {
-            token = await RefreshCodexTokenIfNeededAsync(account.Email, token, lastRefresh, ct) ?? token;
+            token = await RefreshCodexTokenIfNeededAsync(account.Email, token, lastRefresh, ct, account.TokenFile) ?? token;
 
             using var req = new HttpRequestMessage(HttpMethod.Get,
                 "https://chatgpt.com/backend-api/wham/usage");
@@ -572,7 +576,7 @@ public sealed class QuotaFetchService
             if (resp.StatusCode is System.Net.HttpStatusCode.Unauthorized
                                 or System.Net.HttpStatusCode.Forbidden)
             {
-                var refreshed = await RefreshCodexTokenIfNeededAsync(account.Email, token, DateTimeOffset.MinValue, ct);
+                var refreshed = await RefreshCodexTokenIfNeededAsync(account.Email, token, DateTimeOffset.MinValue, ct, account.TokenFile);
                 if (refreshed is null)
                 {
                     SetQuotaError(account, QuotaErrorAuthExpired("Codex"));
@@ -660,12 +664,12 @@ public sealed class QuotaFetchService
     {
         if (string.IsNullOrEmpty(creditId)) return;
 
-        var (token, accountId, lastRefresh) = ReadCodexToken(account.Email);
+        var (token, accountId, lastRefresh) = ReadCodexToken(account.Email, account.TokenFile);
         if (token is null) return;
 
         try
         {
-            token = await RefreshCodexTokenIfNeededAsync(account.Email, token, lastRefresh, ct) ?? token;
+            token = await RefreshCodexTokenIfNeededAsync(account.Email, token, lastRefresh, ct, account.TokenFile) ?? token;
 
             using var req = new HttpRequestMessage(HttpMethod.Post,
                 "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits/consume");
@@ -758,10 +762,10 @@ public sealed class QuotaFetchService
         };
     }
 
-    internal (string? token, string? accountId, DateTimeOffset lastRefresh) ReadCodexToken(string email)
+    internal (string? token, string? accountId, DateTimeOffset lastRefresh) ReadCodexToken(string email, string? tokenFile = null)
     {
         var match = string.IsNullOrEmpty(email) ? null : email;
-        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, "codex", match))
+        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, "codex", match, tokenFile))
         {
             try
             {
@@ -779,13 +783,13 @@ public sealed class QuotaFetchService
     }
 
     private async Task<string?> RefreshCodexTokenIfNeededAsync(
-        string email, string currentToken, DateTimeOffset lastRefresh, CancellationToken ct)
+        string email, string currentToken, DateTimeOffset lastRefresh, CancellationToken ct, string? tokenFile = null)
     {
         const string ClientId   = "app_EMoamEEZ73f0CkXaXp7hrann";
         const string RefreshUrl = "https://auth.openai.com/oauth/token";
 
         if (!Directory.Exists(_authDir)) return null;
-        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, "codex", email))
+        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, "codex", email, tokenFile))
         {
             try
             {
@@ -838,7 +842,7 @@ public sealed class QuotaFetchService
 
     private async Task FetchDevinAsync(ProviderAccountViewModel account, CancellationToken ct)
     {
-        var token = ReadDevinSessionToken(account.Email);
+        var token = ReadDevinSessionToken(account.Email, account.TokenFile);
         if (token is null)
         {
             SetQuotaError(account, QuotaErrorTokenUnavailable("Devin"));
@@ -938,10 +942,10 @@ public sealed class QuotaFetchService
             System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var p) ? p : null;
     }
 
-    private string? ReadDevinSessionToken(string email)
+    internal string? ReadDevinSessionToken(string email, string? tokenFile = null)
     {
         if (!Directory.Exists(_authDir)) return null;
-        foreach (var file in Directory.GetFiles(_authDir, "devin-*.json"))
+        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, "devin", null, tokenFile))
         {
             try
             {
@@ -972,7 +976,7 @@ public sealed class QuotaFetchService
 
     private async Task FetchAntigravityAsync(ProviderAccountViewModel account, CancellationToken ct)
     {
-        var token = await ReadAntigravityTokenAsync(account.Email, ct);
+        var token = await ReadAntigravityTokenAsync(account.Email, ct, account.TokenFile);
         if (token is null)
         {
             SetQuotaError(account, QuotaErrorTokenUnavailable("Antigravity"));
@@ -1080,7 +1084,7 @@ public sealed class QuotaFetchService
         catch { }
     }
 
-    private async Task<string?> ReadAntigravityTokenAsync(string email, CancellationToken ct)
+    internal async Task<string?> ReadAntigravityTokenAsync(string email, CancellationToken ct, string? tokenFile = null)
     {
         // Antigravity OAuth credentials (from Quotio open-source implementation)
         // These are public OAuth app credentials, not user secrets
@@ -1089,7 +1093,7 @@ public sealed class QuotaFetchService
         const string tokenUri     = "https://oauth2.googleapis.com/token";
 
         if (!Directory.Exists(_authDir)) return null;
-        foreach (var file in Directory.GetFiles(_authDir, "antigravity-*.json"))
+        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, "antigravity", null, tokenFile))
         {
             try
             {
@@ -1131,7 +1135,7 @@ public sealed class QuotaFetchService
 
     private async Task FetchXaiAsync(ProviderAccountViewModel account, CancellationToken ct)
     {
-        var token = await ReadXaiTokenAsync(account.Email, ct);
+        var token = await ReadXaiTokenAsync(account.Email, ct, account.TokenFile);
         if (token is null)
         {
             SetQuotaError(account, QuotaErrorTokenUnavailable("xAI"));
@@ -1213,10 +1217,10 @@ public sealed class QuotaFetchService
         catch { }
     }
 
-    private async Task<string?> ReadXaiTokenAsync(string email, CancellationToken ct)
+    internal async Task<string?> ReadXaiTokenAsync(string email, CancellationToken ct, string? tokenFile = null)
     {
         if (!Directory.Exists(_authDir)) return null;
-        foreach (var file in Directory.GetFiles(_authDir, "xai-*.json"))
+        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, "xai", null, tokenFile))
         {
             try
             {
@@ -2147,10 +2151,10 @@ public sealed class QuotaFetchService
 
     // ── Token reader ─────────────────────────────────────────────────────────
 
-    internal string? ReadAccessToken(string prefix, string email)
+    internal string? ReadAccessToken(string prefix, string email, string? tokenFile = null)
     {
-        if (string.IsNullOrWhiteSpace(email)) return null;
-        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, prefix, email))
+        if (string.IsNullOrWhiteSpace(email) && string.IsNullOrEmpty(tokenFile)) return null;
+        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, prefix, email, tokenFile))
         {
             try
             {
