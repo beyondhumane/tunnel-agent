@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -93,6 +94,7 @@ public sealed class ProviderCatalogService : IDisposable
             existing.Kind = provider.Kind;
         }
         BuildProviderList();
+        PruneCredentialBackups(CredentialBackupRoot, DateTime.UtcNow);
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -252,9 +254,9 @@ public sealed class ProviderCatalogService : IDisposable
     public Task<OAuthConnectResult> ConnectOAuthAsync(string providerId) =>
         _oauth.ConnectAsync(providerId);
 
-    /// <summary>Latest token-file write time (UTC) for an OAuth provider, or null when none exist.</summary>
-    public DateTime? LatestOAuthTokenWriteUtc(string providerId) =>
-        _oauthDetector.GetLatestTokenWriteUtc(providerId);
+    /// <summary>Write time (UTC) of each of an OAuth provider's token files, keyed by file name.</summary>
+    public IReadOnlyDictionary<string, DateTime> OAuthTokenWriteTimes(string providerId) =>
+        _oauthDetector.GetTokenWriteTimes(providerId);
 
     public Task RefreshAccountQuotaAsync(ProviderViewModel provider, ProviderAccountViewModel account) =>
         _quota.FetchAccountPublicAsync(provider.Id, account);
@@ -264,7 +266,7 @@ public sealed class ProviderCatalogService : IDisposable
     /// </summary>
     public void DisconnectOAuth(string providerId)
     {
-        _oauth.CancelPreviousAuth();
+        _oauth.CancelPreviousAuth(providerId);
 
         if (!OAuthTokenDetector.KnownProviders.TryGetValue(providerId, out var prefix)) return;
         foreach (var file in EnumerateOAuthCredentialFiles(_authDir, prefix))
@@ -274,10 +276,10 @@ public sealed class ProviderCatalogService : IDisposable
     }
 
     /// <summary>Remove a single OAuth account by deleting its token file.</summary>
-    public void RemoveOAuthAccount(string providerId, string email)
+    public void RemoveOAuthAccount(string providerId, string email, string? tokenFile = null)
     {
         if (!OAuthTokenDetector.KnownProviders.TryGetValue(providerId, out var prefix)) return;
-        foreach (var file in EnumerateOAuthCredentialFiles(_authDir, prefix, email))
+        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, prefix, email, tokenFile))
             BackupAndDeleteCredentialFile(file, "remove-oauth-account");
 
         _watcher.NotifyNow();
@@ -319,18 +321,55 @@ public sealed class ProviderCatalogService : IDisposable
     private static IEnumerable<string> EnumerateOAuthCredentialFiles(string authDir, string prefix, string? email = null)
         => OAuthTokenDetector.GetTokenFiles(authDir, prefix, email);
 
+    // Backups must live outside auth-dir: CLIProxyAPI's own management UI scans
+    // auth-dir for credential files and would otherwise list these backups as accounts.
+    private static string CredentialBackupRoot =>
+        Path.Combine(IPlatformInfo.Current.LocalDataDirectory, "credential-backups");
+
+    private const string CredentialBackupStampFormat = "yyyyMMddHHmmss";
+
+    /// <summary>Backups hold live refresh tokens, so a removed account stays recoverable only this long.</summary>
+    internal static readonly TimeSpan CredentialBackupRetention = TimeSpan.FromDays(7);
+
+    /// <summary>Deletes backup folders older than <see cref="CredentialBackupRetention"/>.</summary>
+    internal static void PruneCredentialBackups(string root, DateTime nowUtc)
+    {
+        if (!Directory.Exists(root)) return;
+        foreach (var dir in Directory.GetDirectories(root))
+        {
+            if (!DateTime.TryParseExact(Path.GetFileName(dir), CredentialBackupStampFormat, CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var createdUtc))
+                continue;
+            if (nowUtc - createdUtc < CredentialBackupRetention) continue;
+            try { Directory.Delete(dir, recursive: true); }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ProviderCatalogService] Failed to prune credential backup {dir}: {ex.Message}");
+            }
+        }
+    }
+
+    private static void CreateOwnerOnlyDirectory(string path)
+    {
+        Directory.CreateDirectory(path);
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+    }
+
     private static void BackupAndDeleteCredentialFile(string file, string reason)
     {
         try
         {
-            // Backups must live outside auth-dir: CLIProxyAPI's own management UI scans
-            // auth-dir for credential files and would otherwise list these backups as accounts.
-            var backupDir = Path.Combine(IPlatformInfo.Current.LocalDataDirectory, "credential-backups",
-                DateTime.UtcNow.ToString("yyyyMMddHHmmss"));
-            Directory.CreateDirectory(backupDir);
+            var root = CredentialBackupRoot;
+            PruneCredentialBackups(root, DateTime.UtcNow);
+            var backupDir = Path.Combine(root, DateTime.UtcNow.ToString(CredentialBackupStampFormat, CultureInfo.InvariantCulture));
+            CreateOwnerOnlyDirectory(root);
+            CreateOwnerOnlyDirectory(backupDir);
 
             var backupPath = Path.Combine(backupDir, Path.GetFileName(file));
             File.Copy(file, backupPath, overwrite: true);
+            if (!OperatingSystem.IsWindows())
+                File.SetUnixFileMode(backupPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
             File.Delete(file);
             System.Diagnostics.Debug.WriteLine($"[ProviderCatalogService] Deleted auth file ({reason}): {file}; backup: {backupPath}");
         }
@@ -492,35 +531,60 @@ public sealed class ProviderCatalogService : IDisposable
 
     private void SyncOAuthAccounts(ProviderViewModel vm, List<OAuthAccount> accounts)
     {
-        // Remove stale (keyed by email)
-        var toRemove = vm.Accounts
-            .Where(a => !a.IsCustomKey && !accounts.Any(r => r.Email == a.Email))
-            .ToList();
-        foreach (var a in toRemove) vm.Accounts.Remove(a);
+        // Rows are keyed by token file: one email can have several (one per Claude
+        // organization or Codex workspace).
+        var rows = vm.Accounts.Where(a => !a.IsCustomKey).ToList();
+        var matched = new Dictionary<ProviderAccountViewModel, OAuthAccount>();
+        var unmatched = new List<OAuthAccount>();
+        foreach (var r in accounts)
+        {
+            var row = rows.FirstOrDefault(a => !matched.ContainsKey(a)
+                && string.Equals(a.TokenFile, r.TokenFile, StringComparison.OrdinalIgnoreCase));
+            if (row is null) unmatched.Add(r);
+            else matched[row] = r;
+        }
 
-        // Add new
-        foreach (var r in accounts.Where(r => !vm.Accounts.Any(a => a.Email == r.Email)))
+        // A renamed file (e.g. CLIProxyAPI moving "claude-{email}.json" to "claude-{id}-{email}.json")
+        // keeps its row, quota included.
+        foreach (var r in unmatched.ToList())
+        {
+            var row = rows.FirstOrDefault(a => !matched.ContainsKey(a)
+                && string.Equals(a.Email, r.Email, StringComparison.OrdinalIgnoreCase));
+            if (row is null) continue;
+            matched[row] = r;
+            unmatched.Remove(r);
+        }
+
+        foreach (var a in rows.Where(a => !matched.ContainsKey(a))) vm.Accounts.Remove(a);
+
+        foreach (var r in unmatched)
         {
             var acct = new ProviderAccountViewModel(r.ProviderId, apiKey: "", label: r.Email, r.IsDisabled)
             {
                 Email             = r.Email,
+                TokenFile         = r.TokenFile,
                 PlanBadge         = r.Plan,
                 IsProviderEnabled = vm.IsEnabled,
             };
             WireAccountDisable(acct, vm);
             vm.Accounts.Add(acct);
+            matched[acct] = r;
         }
 
+        var sharedEmails = accounts
+            .GroupBy(r => r.Email, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         // Update disabled state — preserve PlanBadge if already enriched by QuotaFetchService
-        foreach (var a in vm.Accounts.Where(a => !a.IsCustomKey))
+        foreach (var (a, r) in matched)
         {
-            var match = accounts.FirstOrDefault(r => r.Email == a.Email);
-            if (match is not null)
-            {
-                a.IsDisabled = match.IsDisabled;
-                if (string.IsNullOrEmpty(a.PlanBadge))
-                    a.PlanBadge = match.Plan;
-            }
+            a.TokenFile = r.TokenFile;
+            a.IsDisabled = r.IsDisabled;
+            if (string.IsNullOrEmpty(a.PlanBadge))
+                a.PlanBadge = r.Plan;
+            a.AccountQualifier = sharedEmails.Contains(r.Email) ? r.Discriminator : "";
         }
 
         vm.RefreshAccountCount();
@@ -564,7 +628,7 @@ public sealed class ProviderCatalogService : IDisposable
                 _settings.Save();
             }
             else
-                _oauthDetector.SetDisabled(acct.ProviderId, acct.Email, disabled);
+                _oauthDetector.SetDisabled(acct.ProviderId, acct.Email, disabled, acct.TokenFile);
 
             if (disabled)
             {

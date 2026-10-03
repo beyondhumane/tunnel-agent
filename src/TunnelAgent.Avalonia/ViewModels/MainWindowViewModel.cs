@@ -311,12 +311,9 @@ SelectedSection is SectionKey.Logs;
     /// <summary>Briefly true after the user copies the sign-in URL (drives the copy/check icon swap).</summary>
     [ObservableProperty] private bool _oAuthUrlCopied;
 
-    // Provider whose OAuth login is in progress; the toast auto-closes once its
-    // account count rises (new account) or its token file is rewritten (re-auth of
-    // an existing account), relative to the baseline captured when the flow started.
+    // Provider whose OAuth login the toast is showing; it closes once that login process exits
+    // having written a token, and turns into an error when it exits without one.
     private string? _pendingOAuthProviderId;
-    private int _pendingOAuthBaselineAccounts;
-    private DateTime? _pendingOAuthBaselineWriteUtc;
 
     private CancellationTokenSource? _oauthStatusDismissCts;
 
@@ -1402,7 +1399,6 @@ SelectedSection is SectionKey.Logs;
             OnPropertyChanged(nameof(ConnectedProviderCount));
             RefreshQuotaNavigation();
             PropagateEmailMasking(MaskEmails);
-            MaybeCompletePendingOAuth();
         });
 
     private void OnProvidersRebuilt(object? sender, EventArgs e) =>
@@ -1412,7 +1408,6 @@ SelectedSection is SectionKey.Logs;
             OnPropertyChanged(nameof(ConnectedProviderCount));
             RefreshQuotaNavigation();
             PropagateEmailMasking(MaskEmails);
-            MaybeCompletePendingOAuth();
         });
 
     /// <summary>
@@ -1922,24 +1917,18 @@ SelectedSection is SectionKey.Logs;
     public async Task ConnectOAuthAsync(string providerId)
     {
         var provider = Providers.FirstOrDefault(p => p.Id == providerId);
-        _pendingOAuthBaselineAccounts = provider?.Accounts.Count(a => !a.IsCustomKey) ?? 0;
-        _pendingOAuthBaselineWriteUtc = _catalog.LatestOAuthTokenWriteUtc(providerId);
+        var baseline = _catalog.OAuthTokenWriteTimes(providerId);
         if (provider is not null) provider.IsConnecting = true;
         try
         {
             var result = await _catalog.ConnectOAuthAsync(providerId);
 
-            OAuthStatusUrl = result.Status == OAuthConnectStatus.BrowserOpenedWithUrl ? result.Detail : "";
-            ShowOAuthStatus = false;
-            OAuthStatusIsError = !result.Success;
-            OAuthStatusMessage = LocalizeOAuthResult(result);
-            ShowOAuthStatus = true;
+            ShowOAuthStatusMessage(LocalizeOAuthResult(result), isError: !result.Success,
+                url: result.Status == OAuthConnectStatus.BrowserOpenedWithUrl ? result.Detail : "");
 
-            // Watch the auth dir: once a new token lands for this provider we
-            // auto-dismiss the toast (see MaybeCompletePendingOAuth). Check once now
-            // in case a fast re-auth already rewrote the token during startup.
             _pendingOAuthProviderId = result.Success ? providerId : null;
-            if (result.Success) MaybeCompletePendingOAuth();
+            if (result.Completion is { } completion)
+                _ = ObserveOAuthLoginAsync(providerId, result, completion, baseline);
         }
         finally
         {
@@ -1947,22 +1936,53 @@ SelectedSection is SectionKey.Logs;
         }
     }
 
-    /// <summary>Closes the OAuth toast once the awaited provider gains a new account (login completed).</summary>
-    private void MaybeCompletePendingOAuth()
+    private void ShowOAuthStatusMessage(string message, bool isError, string url = "")
     {
-        if (_pendingOAuthProviderId is null) return;
-        var provider = Providers.FirstOrDefault(p => p.Id == _pendingOAuthProviderId);
-        if (provider is null) return;
-
-        // New account added, or an existing account's token was rewritten (re-auth).
-        var gainedAccount = provider.Accounts.Count(a => !a.IsCustomKey) > _pendingOAuthBaselineAccounts;
-        var latestWrite   = _catalog.LatestOAuthTokenWriteUtc(_pendingOAuthProviderId);
-        var tokenRewritten = latestWrite is { } w &&
-            (_pendingOAuthBaselineWriteUtc is not { } b || w > b);
-        if (!gainedAccount && !tokenRewritten) return;
-
-        _pendingOAuthProviderId = null;
+        OAuthStatusUrl = url;
         ShowOAuthStatus = false;
+        OAuthStatusIsError = isError;
+        OAuthStatusMessage = message;
+        ShowOAuthStatus = true;
+    }
+
+    private async Task ObserveOAuthLoginAsync(string providerId, OAuthConnectResult result,
+        Task<OAuthLoginExit> completion, IReadOnlyDictionary<string, DateTime> baseline)
+    {
+        // The binary may print the sign-in URL only after the first second (e.g. no browser available).
+        if (result.Status != OAuthConnectStatus.BrowserOpenedWithUrl && result.AuthUrl is { } authUrl)
+        {
+            _ = authUrl.ContinueWith(t => Dispatcher.UIThread.Post(() =>
+            {
+                if (t.Result.Length == 0 || _pendingOAuthProviderId != providerId) return;
+                ShowOAuthStatusMessage(Localization.GetString("OAuth_Status_BrowserOpenedWithUrl"), isError: false, url: t.Result);
+            }), TaskScheduler.Default);
+        }
+
+        var exit = await completion.ConfigureAwait(false);
+        Dispatcher.UIThread.Post(() => CompleteOAuthLogin(providerId, exit, baseline));
+    }
+
+    /// <summary>
+    /// Runs when a login process exits. CLIProxyAPI exits 0 on most failures (cancelled in the
+    /// browser, callback timeout, failed code exchange), so success means a token file was written.
+    /// </summary>
+    private void CompleteOAuthLogin(string providerId, OAuthLoginExit exit, IReadOnlyDictionary<string, DateTime> baseline)
+    {
+        if (exit.Cancelled) return;
+
+        var showsThisLogin = _pendingOAuthProviderId == providerId;
+        if (showsThisLogin) _pendingOAuthProviderId = null;
+
+        if (OAuthTokenDetector.HasNewToken(baseline, _catalog.OAuthTokenWriteTimes(providerId)))
+        {
+            if (showsThisLogin) ShowOAuthStatus = false;
+            return;
+        }
+
+        var detail = OAuthService.FailureSummary(exit.Output);
+        ShowOAuthStatusMessage(detail.Length == 0
+            ? Localization.GetString("OAuth_Status_FailedUnexpected")
+            : Localization.GetString("OAuth_Status_Failed", detail), isError: true);
     }
 
     private string LocalizeOAuthResult(OAuthConnectResult result) => result.Status switch
@@ -2663,7 +2683,7 @@ SelectedSection is SectionKey.Logs;
         if (account.IsCustomKey)
             await _catalog.RemoveAccountAsync(account.ProviderId, account.ApiKey);
         else
-            _catalog.RemoveOAuthAccount(account.ProviderId, account.Email);
+            _catalog.RemoveOAuthAccount(account.ProviderId, account.Email, account.TokenFile);
         OnPropertyChanged(nameof(ConnectedProviderCount));
     }
 

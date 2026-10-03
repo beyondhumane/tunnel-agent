@@ -29,7 +29,21 @@ public enum OAuthConnectStatus
 }
 
 /// <summary>Structured result of <see cref="OAuthService.ConnectAsync"/>. <c>Detail</c> carries dynamic, non-localizable data.</summary>
-public readonly record struct OAuthConnectResult(bool Success, OAuthConnectStatus Status, string Detail = "");
+public readonly record struct OAuthConnectResult(bool Success, OAuthConnectStatus Status, string Detail = "")
+{
+    /// <summary>Completes when the login process exits; null when no login process was started.</summary>
+    public Task<OAuthLoginExit>? Completion { get; init; }
+
+    /// <summary>Completes with the first sign-in URL the binary prints, or "" if it exits without one.</summary>
+    public Task<string>? AuthUrl { get; init; }
+}
+
+/// <summary>
+/// How a login process ended. CLIProxyAPI exits 0 on most login failures, so success has to be
+/// judged by whether a token file was written, not by <see cref="ExitCode"/>.
+/// </summary>
+/// <param name="Cancelled">The process was killed by <see cref="OAuthService.CancelPreviousAuth"/>.</param>
+public readonly record struct OAuthLoginExit(bool Cancelled, int ExitCode, string Output);
 
 /// <summary>
 /// Launches the CLIProxyAPI binary in OAuth login mode for a given provider.
@@ -54,14 +68,27 @@ public sealed class OAuthService : IDisposable
     public static bool IsOAuthProvider(string providerId) =>
         LoginFlags.ContainsKey(providerId);
 
+    private sealed class LoginRun(Process process)
+    {
+        public Process Process { get; } = process;
+        public volatile bool Cancelled;
+    }
+
     private readonly ConfigService _config;
-    private Process? _authProcess;
+    private readonly string? _binaryPath;
+    // One login per provider: each provider's callback server listens on its own port.
+    private readonly Dictionary<string, LoginRun> _runs = new(StringComparer.OrdinalIgnoreCase);
     private readonly Lock _lock = new();
 
-    // Codex needs a keepalive newline ~12s in
-    private static readonly TimeSpan CodexKeepaliveDelay = TimeSpan.FromSeconds(12);
+    private static readonly TimeSpan OutputDrainTimeout = TimeSpan.FromSeconds(2);
 
-    public OAuthService(ConfigService config) => _config = config;
+    public OAuthService(ConfigService config) : this(config, null) { }
+
+    internal OAuthService(ConfigService config, string? binaryPath)
+    {
+        _config = config;
+        _binaryPath = binaryPath;
+    }
 
     /// <summary>
     /// Starts the OAuth flow for the given provider.
@@ -74,12 +101,11 @@ public sealed class OAuthService : IDisposable
         if (!LoginFlags.TryGetValue(providerId, out var flag))
             return new OAuthConnectResult(false, OAuthConnectStatus.NotSupported, providerId);
 
-        var binaryPath = DownloadService.BinaryPath;
+        var binaryPath = _binaryPath ?? DownloadService.BinaryPath;
         if (!File.Exists(binaryPath))
             return new OAuthConnectResult(false, OAuthConnectStatus.BinaryMissing);
 
-        // Kill any previously running auth process for this session
-        CancelPreviousAuth();
+        CancelPreviousAuth(providerId);
 
         var configPath = _config.ConfigPath;
         if (!File.Exists(configPath))
@@ -98,28 +124,46 @@ public sealed class OAuthService : IDisposable
         psi.ArgumentList.Add($"-{flag}");
 
         var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
+        var run = new LoginRun(process);
 
-        var outputBuilder = new StringBuilder();
-        process.OutputDataReceived += (_, e) =>
+        var output = new StringBuilder();
+        var urlTcs = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnLine(string? line)
         {
-            if (e.Data is not null) outputBuilder.AppendLine(e.Data);
-        };
+            if (line is null) return;
+            lock (output) output.AppendLine(line);
+            var url = ExtractAuthUrl(line);
+            if (url.Length > 0) urlTcs.TrySetResult(url);
+        }
+        string CapturedOutput() { lock (output) return output.ToString().Trim(); }
+        process.OutputDataReceived += (_, e) => OnLine(e.Data);
+        process.ErrorDataReceived  += (_, e) => OnLine(e.Data);
 
         // Capture the exit code from inside the handler so callers never touch a
         // disposed Process, and always dispose once it exits (a successful login
         // keeps the process alive until the user completes the flow).
-        var exitTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        process.Exited += (_, _) =>
+        var exitTcs = new TaskCompletionSource<OAuthLoginExit>(TaskCreationOptions.RunContinuationsAsynchronously);
+        process.Exited += (_, _) => _ = Task.Run(async () =>
         {
             var code = -1;
             try { code = process.ExitCode; } catch { /* already gone */ }
-            exitTcs.TrySetResult(code);
 
-            lock (_lock) { if (_authProcess == process) _authProcess = null; }
+            // Exited can fire before the async readers have delivered the last lines.
+            var drained = Task.Run(() => { try { process.WaitForExit(); } catch { /* disposed */ } });
+            await Task.WhenAny(drained, Task.Delay(OutputDrainTimeout));
+
+            urlTcs.TrySetResult("");
+            exitTcs.TrySetResult(new OAuthLoginExit(run.Cancelled, code, CapturedOutput()));
+
+            lock (_lock)
+            {
+                if (_runs.TryGetValue(providerId, out var current) && current == run)
+                    _runs.Remove(providerId);
+            }
             try { process.Dispose(); } catch { /* idempotent */ }
-        };
+        });
 
-        lock (_lock) { _authProcess = process; }
+        lock (_lock) { _runs[providerId] = run; }
 
         try
         {
@@ -129,60 +173,81 @@ public sealed class OAuthService : IDisposable
         }
         catch (Exception ex)
         {
+            lock (_lock)
+            {
+                if (_runs.TryGetValue(providerId, out var current) && current == run)
+                    _runs.Remove(providerId);
+            }
+            process.Dispose();
             return new OAuthConnectResult(false, OAuthConnectStatus.StartFailed, ex.Message);
         }
 
-        // Provider-specific stdin automation
-        if (providerId == "codex")
-            _ = SendDelayedNewlineAsync(process, CodexKeepaliveDelay);
-
-        // Give the process ~1s: a live process means the browser flow started and
-        // the AuthFileWatcher will detect completion. A quick exit is judged by
-        // exit code, never by parsing stdout (which changes between binary releases).
+        // Give the process ~1s: a live process means the browser flow started.
+        // A quick non-zero exit is reported right away; everything else is judged by
+        // the caller once Completion finishes, never by parsing stdout (which changes
+        // between binary releases).
         var finished = await Task.WhenAny(exitTcs.Task, Task.Delay(1000));
 
         if (finished != exitTcs.Task)
         {
             // Still running: surface the sign-in URL as a fallback for headless
             // environments where the binary could not open a browser.
-            var url = ExtractAuthUrl(outputBuilder.ToString());
-            return string.IsNullOrEmpty(url)
-                ? new OAuthConnectResult(true, OAuthConnectStatus.BrowserOpened)
-                : new OAuthConnectResult(true, OAuthConnectStatus.BrowserOpenedWithUrl, url);
+            var url = urlTcs.Task.IsCompletedSuccessfully ? urlTcs.Task.Result : "";
+            var status = string.IsNullOrEmpty(url)
+                ? OAuthConnectStatus.BrowserOpened
+                : OAuthConnectStatus.BrowserOpenedWithUrl;
+            return new OAuthConnectResult(true, status, url) { Completion = exitTcs.Task, AuthUrl = urlTcs.Task };
         }
 
-        var exitCode = await exitTcs.Task;
-        if (exitCode == 0)
-            return new OAuthConnectResult(true, OAuthConnectStatus.BrowserOpened);
+        var exit = await exitTcs.Task;
+        if (exit.ExitCode == 0)
+            return new OAuthConnectResult(true, OAuthConnectStatus.BrowserOpened) { Completion = exitTcs.Task, AuthUrl = urlTcs.Task };
 
-        var earlyOutput = outputBuilder.ToString().Trim();
-        return string.IsNullOrWhiteSpace(earlyOutput)
+        return string.IsNullOrWhiteSpace(exit.Output)
             ? new OAuthConnectResult(false, OAuthConnectStatus.FailedUnexpected)
-            : new OAuthConnectResult(false, OAuthConnectStatus.Failed, earlyOutput);
+            : new OAuthConnectResult(false, OAuthConnectStatus.Failed, exit.Output);
     }
 
-    /// <summary>Kills any active auth process (e.g. when user clicks Disconnect or starts a new auth).</summary>
-    public void CancelPreviousAuth()
+    /// <summary>
+    /// Kills the active login process of <paramref name="providerId"/>, or of every provider when null
+    /// (e.g. when the user disconnects, starts a new login, or resets all credentials).
+    /// </summary>
+    public void CancelPreviousAuth(string? providerId = null)
     {
-        Process? prev;
+        List<LoginRun> runs;
         lock (_lock)
         {
-            prev = _authProcess;
-            _authProcess = null;
+            if (providerId is null)
+            {
+                runs = [.. _runs.Values];
+                _runs.Clear();
+            }
+            else
+            {
+                runs = _runs.Remove(providerId, out var run) ? [run] : [];
+            }
         }
 
-        if (prev is null) return;
-        try
+        foreach (var run in runs)
         {
-            if (!prev.HasExited)
-                prev.Kill(entireProcessTree: true);
-            prev.Dispose();
+            run.Cancelled = true;
+            try
+            {
+                if (!run.Process.HasExited)
+                    run.Process.Kill(entireProcessTree: true);
+            }
+            catch { /* best-effort; the Exited handler disposes */ }
         }
-        catch { /* best-effort */ }
     }
 
     public void Dispose() => CancelPreviousAuth();
 
+    /// <summary>The last few non-empty lines of a login's output, where CLIProxyAPI prints why it failed.</summary>
+    public static string FailureSummary(string output, int maxLines = 4)
+    {
+        var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return string.Join(Environment.NewLine, lines[Math.Max(0, lines.Length - maxLines)..]);
+    }
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private static string ProviderDisplayName(string providerId) => providerId switch
@@ -206,16 +271,5 @@ public sealed class OAuthService : IDisposable
         if (string.IsNullOrEmpty(output)) return "";
         var match = UrlPattern.Match(output);
         return match.Success ? match.Value.TrimEnd('.', ',', ')', ']') : "";
-    }
-
-    private static async Task SendDelayedNewlineAsync(Process process, TimeSpan delay)
-    {
-        try
-        {
-            await Task.Delay(delay);
-            if (!process.HasExited)
-                await process.StandardInput.WriteLineAsync();
-        }
-        catch { /* ignore — process may have exited */ }
     }
 }

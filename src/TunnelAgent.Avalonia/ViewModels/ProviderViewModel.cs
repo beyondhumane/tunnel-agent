@@ -137,6 +137,13 @@ public partial class ProviderAccountViewModel : ViewModelBase
     [ObservableProperty] private string _email = "";
     partial void OnEmailChanged(string value) => OnPropertyChanged(nameof(DisplayName));
 
+    /// <summary>OAuth token file name in the auth-dir; identifies the account when several share an email.</summary>
+    public string TokenFile { get; set; } = "";
+
+    /// <summary>Organization or file id appended to the name when another account has the same email.</summary>
+    [ObservableProperty] private string _accountQualifier = "";
+    partial void OnAccountQualifierChanged(string value) => OnPropertyChanged(nameof(DisplayName));
+
     /// <summary>Plan badge text, e.g. "PLUS", "PRO", "FREE". Empty = hide badge.</summary>
     [ObservableProperty] private string _planBadge = "";
 
@@ -229,8 +236,11 @@ public partial class ProviderAccountViewModel : ViewModelBase
     [ObservableProperty] private bool _maskEmails;
     partial void OnMaskEmailsChanged(bool value) => OnPropertyChanged(nameof(DisplayName));
 
-    /// <summary>Display name: email if available, else label, else masked key.</summary>
+    /// <summary>Display name: email if available, else label, else masked key; plus the qualifier when set.</summary>
     public string DisplayName =>
+        string.IsNullOrEmpty(AccountQualifier) ? BaseDisplayName : $"{BaseDisplayName} · {AccountQualifier}";
+
+    private string BaseDisplayName =>
         !string.IsNullOrEmpty(Email) ? (MaskEmails ? MaskEmailAddress(Email) : Email) :
         !string.IsNullOrEmpty(Label) ? Label :
         MaskedKey;

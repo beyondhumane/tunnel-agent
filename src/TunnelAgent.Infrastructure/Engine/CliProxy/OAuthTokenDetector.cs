@@ -20,6 +20,11 @@ public sealed class OAuthAccount
     /// <summary>Uppercase plan badge, e.g. "PLUS", "PRO", "FREE". Empty = no badge.</summary>
     public string Plan       { get; init; } = "";
     public bool   IsDisabled { get; init; }
+    /// <summary>Token file name in the auth-dir. Identifies the account: one email can have several
+    /// files, e.g. one per Claude organization or Codex workspace.</summary>
+    public string TokenFile  { get; init; } = "";
+    /// <summary>Organization name, or else CLIProxyAPI's file id, to tell apart files sharing an email.</summary>
+    public string Discriminator { get; init; } = "";
 }
 
 /// <summary>
@@ -70,12 +75,15 @@ public sealed class OAuthTokenDetector
         return result;
     }
 
-    /// <summary>Patches the disabled field on the token file matching the given email.</summary>
-    public void SetDisabled(string providerId, string email, bool disabled)
+    /// <summary>
+    /// Patches the disabled field on <paramref name="tokenFile"/>, or on every token file matching
+    /// <paramref name="email"/> when no file is given.
+    /// </summary>
+    public void SetDisabled(string providerId, string email, bool disabled, string? tokenFile = null)
     {
         if (!KnownProviders.TryGetValue(providerId, out var prefix)) return;
 
-        foreach (var file in GetTokenFiles(_directory, prefix, email))
+        foreach (var file in GetTokenFiles(_directory, prefix, email, tokenFile))
         {
             try
             {
@@ -91,25 +99,26 @@ public sealed class OAuthTokenDetector
     }
 
     /// <summary>
-    /// Returns the most recent write time (UTC) among the provider's token files,
-    /// or null when none exist. Used to detect a fresh login even when re-authenticating
-    /// an already-present account (the account count stays the same but the file is rewritten).
+    /// Write time (UTC) of each of the provider's token files, keyed by file name. Comparing a
+    /// snapshot taken before a login with one taken after it (<see cref="HasNewToken"/>) tells
+    /// whether the login wrote a token, including a re-login that rewrites an existing file.
     /// </summary>
-    public DateTime? GetLatestTokenWriteUtc(string providerId)
+    public IReadOnlyDictionary<string, DateTime> GetTokenWriteTimes(string providerId)
     {
-        if (!KnownProviders.TryGetValue(providerId, out var prefix)) return null;
-        if (!Directory.Exists(_directory)) return null;
+        var result = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+        if (!KnownProviders.TryGetValue(providerId, out var prefix)) return result;
 
-        DateTime? latest = null;
-        foreach (var file in Directory.GetFiles(_directory, $"{prefix}-*.json"))
+        foreach (var file in GetTokenFiles(_directory, prefix))
         {
-            if (Path.GetFileName(file).StartsWith("openai-compat-", StringComparison.OrdinalIgnoreCase))
-                continue;
-            var t = File.GetLastWriteTimeUtc(file);
-            if (latest is null || t > latest) latest = t;
+            try { result[Path.GetFileName(file)] = File.GetLastWriteTimeUtc(file); }
+            catch { /* removed meanwhile */ }
         }
-        return latest;
+        return result;
     }
+
+    /// <summary>True when <paramref name="after"/> has a token file that is missing from, or newer than, <paramref name="before"/>.</summary>
+    public static bool HasNewToken(IReadOnlyDictionary<string, DateTime> before, IReadOnlyDictionary<string, DateTime> after) =>
+        after.Any(kv => !before.TryGetValue(kv.Key, out var t) || kv.Value > t);
 
     /// <summary>Returns IDs of providers that have at least one active account.</summary>
     public HashSet<string> GetConnectedProviderIds()
@@ -144,6 +153,22 @@ public sealed class OAuthTokenDetector
                 : string.Equals(jsonEmail, email, StringComparison.OrdinalIgnoreCase);
             if (matches) yield return file;
         }
+    }
+
+    /// <summary>
+    /// The single token file <paramref name="tokenFile"/> (nothing if it no longer exists), or every
+    /// file of <paramref name="email"/> when no file is given. Callers acting on one account pass the
+    /// file, so an account sharing its email with another never touches the other's file.
+    /// </summary>
+    public static IEnumerable<string> GetTokenFiles(string directory, string prefix, string? email, string? tokenFile)
+    {
+        if (string.IsNullOrEmpty(tokenFile)) return GetTokenFiles(directory, prefix, email);
+
+        var name = Path.GetFileName(tokenFile);
+        var path = Path.Combine(directory, name);
+        return name.StartsWith($"{prefix}-", StringComparison.OrdinalIgnoreCase) && File.Exists(path)
+            ? [path]
+            : [];
     }
 
     // ── private ──────────────────────────────────────────────────────────────
@@ -182,12 +207,16 @@ public sealed class OAuthTokenDetector
             if (string.IsNullOrEmpty(plan))
                 plan = PlanFromFilename(filePath, prefix, email);
 
+            var organization = doc["organization_name"]?.GetValue<string>();
+
             return new OAuthAccount
             {
                 ProviderId = providerId,
                 Email      = email,
                 Plan       = plan,
                 IsDisabled = disabled,
+                TokenFile  = Path.GetFileName(filePath),
+                Discriminator = string.IsNullOrWhiteSpace(organization) ? FileId(filePath, prefix, email) : organization,
             };
         }
         catch { return null; }
@@ -211,6 +240,16 @@ public sealed class OAuthTokenDetector
         if (FileIdPrefix.IsMatch(rest) && rest[9..].StartsWith(email, StringComparison.OrdinalIgnoreCase))
             return rest[(9 + email.Length)..];
         return null;
+    }
+
+    /// <summary>CLIProxyAPI's id in "{prefix}-{id}-{email}…", e.g. "f9c692a7"; empty for legacy names.</summary>
+    private static string FileId(string fileName, string prefix, string email)
+    {
+        if (string.IsNullOrEmpty(email)) return "";
+        var rest = LegacyAccountPart(fileName, prefix);
+        return FileIdPrefix.IsMatch(rest) && rest[9..].StartsWith(email, StringComparison.OrdinalIgnoreCase)
+            ? rest[..8]
+            : "";
     }
 
     private static readonly Regex FileIdPrefix = new("^[0-9a-fA-F]{8}-", RegexOptions.Compiled);

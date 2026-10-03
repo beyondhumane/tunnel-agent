@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Quota "authentication token is unavailable" with newer CLIProxyAPI auth files** (`OAuthTokenDetector`, `QuotaFetchService`): CLIProxyAPI now names token files `{provider}-{id}-{email}[-{plan}].json` (e.g. `claude-f9c692a7-me@example.com.json`), so the Claude and Codex quota readers, which looked for `{provider}-{email}*.json`, no longer found the token of a signed-in account. Token files are now matched by their JSON `email` field (falling back to the exact legacy filename), the plan badge is read from both filename formats, an account whose email is a prefix of another's (`a@x.com` / `a@x.com.au`) no longer also matches the other one's file when disabling or removing it, and a file without an access token no longer stops the search.
+- **OAuth login failures reported as "browser opened"** (`OAuthService`, `MainWindowViewModel`): CLIProxyAPI exits 0 when a login fails (cancelled in the browser, callback timeout, failed code exchange), and its output was only read during the first second. The app now waits for the login process to exit and, if no token file was written or rewritten, shows the binary's last output lines as an error. The sign-in toast now closes when that login finishes instead of on any write to the provider's token files (e.g. a token refresh), a sign-in URL printed after the first second is still shown, stderr is captured, starting a login only cancels a running login of the same provider, and the Codex login no longer gets an automatic empty line on stdin after 12 s.
+- **Accounts sharing an email collapsed into one** (`OAuthTokenDetector`, `ProviderCatalogService`, `QuotaFetchService`): CLIProxyAPI writes one token file per Claude organization or Codex workspace, but accounts were keyed by email, so they showed as a single row, disabling or removing one also hit the others, and quota used whichever file was found first. Accounts are now keyed by token file; rows sharing an email show the organization name (or file id), and disable, remove and quota act on that file only.
+
+### Security
+
+- **Removed OAuth credentials kept forever in backups** (`ProviderCatalogService`): credential files copied to `credential-backups` before removing an account, disconnecting or resetting are now deleted after 7 days (checked at startup and on each removal), and on macOS/Linux the backups are only readable by the user.
 
 ## [1.1.10] - 2026-10-02
 

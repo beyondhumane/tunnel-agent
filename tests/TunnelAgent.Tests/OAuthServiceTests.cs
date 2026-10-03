@@ -69,4 +69,122 @@ public sealed class OAuthServiceTests
         service.CancelPreviousAuth(); // should not throw
         service.CancelPreviousAuth(); // multiple calls OK
     }
+
+    // Stands in for the CLIProxyAPI binary with a shell script; skipped on Windows.
+    private static async Task<(OAuthService Service, TestTempDirectory Temp)?> FakeLoginBinaryAsync(string script)
+    {
+        if (OperatingSystem.IsWindows()) return null;
+        var temp = new TestTempDirectory();
+        var binary = temp.File("cli-proxy-api");
+        await File.WriteAllTextAsync(binary, "#!/bin/sh\n" + script + "\n");
+        File.SetUnixFileMode(binary, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var settings = new SettingsService(temp.File("settings.json"));
+        await settings.LoadAsync();
+        var config = new ConfigService(settings, temp.File("proxy-config.yaml"), temp.File("auth"));
+        return (new OAuthService(config, binary), temp);
+    }
+
+    private static readonly TimeSpan ExitTimeout = TimeSpan.FromSeconds(15);
+
+    [Fact]
+    public async Task ConnectAsync_LoginFailsAfterStartWithExitZero_CompletionCarriesOutput()
+    {
+        var fake = await FakeLoginBinaryAsync("sleep 1.5; echo 'Claude authentication failed: state mismatch' >&2; exit 0");
+        if (fake is null) return;
+        var (service, temp) = fake.Value;
+        using var _ = temp;
+        using var __ = service;
+
+        var result = await service.ConnectAsync("claude");
+
+        Assert.True(result.Success);
+        Assert.Equal(OAuthConnectStatus.BrowserOpened, result.Status);
+        var exit = await result.Completion!.WaitAsync(ExitTimeout);
+        Assert.False(exit.Cancelled);
+        Assert.Equal(0, exit.ExitCode);
+        Assert.Contains("state mismatch", exit.Output);
+    }
+
+    [Fact]
+    public async Task ConnectAsync_QuickNonZeroExit_ReportsStderr()
+    {
+        var fake = await FakeLoginBinaryAsync("echo 'port 54545 already in use' >&2; exit 1");
+        if (fake is null) return;
+        var (service, temp) = fake.Value;
+        using var _ = temp;
+        using var __ = service;
+
+        var result = await service.ConnectAsync("claude");
+
+        Assert.False(result.Success);
+        Assert.Equal(OAuthConnectStatus.Failed, result.Status);
+        Assert.Contains("already in use", result.Detail);
+    }
+
+    [Fact]
+    public async Task ConnectAsync_UrlPrintedAfterFirstSecond_AuthUrlCompletesWithIt()
+    {
+        var fake = await FakeLoginBinaryAsync("sleep 1.5; echo 'Visit https://claude.ai/oauth/authorize?code=true&state=abc to log in'; sleep 1");
+        if (fake is null) return;
+        var (service, temp) = fake.Value;
+        using var _ = temp;
+        using var __ = service;
+
+        var result = await service.ConnectAsync("claude");
+
+        Assert.Equal(OAuthConnectStatus.BrowserOpened, result.Status);
+        Assert.Equal("https://claude.ai/oauth/authorize?code=true&state=abc", await result.AuthUrl!.WaitAsync(ExitTimeout));
+    }
+
+    [Fact]
+    public async Task CancelPreviousAuth_Provider_CancelsOnlyThatProvidersLogin()
+    {
+        var fake = await FakeLoginBinaryAsync("sleep 30");
+        if (fake is null) return;
+        var (service, temp) = fake.Value;
+        using var _ = temp;
+        using var __ = service;
+
+        var claude = await service.ConnectAsync("claude");
+        var codex = await service.ConnectAsync("codex");
+
+        service.CancelPreviousAuth("claude");
+
+        var claudeExit = await claude.Completion!.WaitAsync(ExitTimeout);
+        Assert.True(claudeExit.Cancelled);
+        Assert.False(codex.Completion!.IsCompleted);
+
+        service.CancelPreviousAuth();
+        Assert.True((await codex.Completion.WaitAsync(ExitTimeout)).Cancelled);
+    }
+
+    [Fact]
+    public async Task ConnectAsync_Codex_DoesNotWriteToStdin()
+    {
+        // CLIProxyAPI asks for a pasted callback URL on stdin; nothing but the user may answer it.
+        var fake = await FakeLoginBinaryAsync("if read -r line; then echo \"stdin: [$line]\"; else echo eof; fi");
+        if (fake is null) return;
+        var (service, temp) = fake.Value;
+        using var _ = temp;
+        using var __ = service;
+
+        var result = await service.ConnectAsync("codex");
+        Assert.False(result.Completion!.IsCompleted);
+
+        await Task.Delay(TimeSpan.FromSeconds(1));
+        Assert.False(result.Completion.IsCompleted);
+        service.CancelPreviousAuth("codex");
+        var exit = await result.Completion.WaitAsync(ExitTimeout);
+        Assert.DoesNotContain("stdin:", exit.Output);
+    }
+
+    [Fact]
+    public void FailureSummary_KeepsLastNonEmptyLines()
+    {
+        var output = "Opening browser\n\nVisit https://x\nWaiting for callback\n  \nClaude authentication failed: timeout\n";
+
+        Assert.Equal(
+            string.Join(Environment.NewLine, "Visit https://x", "Waiting for callback", "Claude authentication failed: timeout"),
+            OAuthService.FailureSummary(output, maxLines: 3));
+    }
 }
