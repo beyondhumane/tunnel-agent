@@ -5,17 +5,18 @@ import { AGENTS, PROVIDERS } from './brands';
 import { BrandIcon } from './ui';
 import { CountUp, useInView, useReducedMotion } from '@/lib/motion';
 import { VERSION } from '@/lib/site';
+import { useI18n } from '@/lib/i18n';
 
 type View = 'home' | 'providers' | 'quota' | 'fallback' | 'agents';
 
-const NAV: { id: View | 'logs' | 'config'; label: string; Icon: typeof Home; badge?: number }[] = [
-  { id: 'home', label: 'Home', Icon: Home },
-  { id: 'providers', label: 'Providers', Icon: Server, badge: 4 },
-  { id: 'quota', label: 'Quota', Icon: LayoutList, badge: 3 },
-  { id: 'fallback', label: 'Fallback', Icon: GitBranch },
-  { id: 'agents', label: 'Agents', Icon: Bot, badge: 5 },
-  { id: 'logs', label: 'Logs', Icon: ScrollText },
-  { id: 'config', label: 'Configuration', Icon: Settings2 },
+const NAV: { id: View | 'logs' | 'config'; Icon: typeof Home; badge?: number }[] = [
+  { id: 'home', Icon: Home },
+  { id: 'providers', Icon: Server, badge: 4 },
+  { id: 'quota', Icon: LayoutList, badge: 3 },
+  { id: 'fallback', Icon: GitBranch },
+  { id: 'agents', Icon: Bot, badge: 5 },
+  { id: 'logs', Icon: ScrollText },
+  { id: 'config', Icon: Settings2 },
 ];
 
 const ENGINES = [
@@ -34,6 +35,7 @@ export function AppMock() {
   const [ref, inView] = useInView<HTMLDivElement>();
 
   const reduced = useReducedMotion();
+  const { t } = useI18n();
 
   useEffect(() => {
     if (!auto || !inView || reduced) return;
@@ -58,8 +60,8 @@ export function AppMock() {
               <b>Tunnel</b> Agent
             </span>
           </div>
-          <nav className="flex flex-col gap-0.5" aria-label="App preview navigation">
-            {NAV.map(({ id, label, Icon, badge }) => {
+          <nav className="flex flex-col gap-0.5" aria-label={t.app.navLabel}>
+            {NAV.map(({ id, Icon, badge }) => {
               const clickable = id !== 'logs' && id !== 'config';
               const active = id === view;
               return (
@@ -78,14 +80,14 @@ export function AppMock() {
                   }`}
                 >
                   <Icon className="size-4 shrink-0" />
-                  <span className="hidden flex-1 text-left sm:inline">{label}</span>
+                  <span className="hidden flex-1 text-left sm:inline">{t.app.nav[id]}</span>
                   {badge && <span className={`hidden text-[11px] sm:inline ${active ? 'text-white/90' : 'text-muted'}`}>{badge}</span>}
                 </button>
               );
             })}
           </nav>
           <div className="mt-auto hidden sm:block">
-            <p className="px-2 pb-1.5 text-[10px] font-semibold tracking-wider text-faint">STATUS</p>
+            <p className="px-2 pb-1.5 text-[10px] font-semibold tracking-wider text-faint">{t.app.status}</p>
             <div className="flex flex-col gap-1">
               {ENGINES.map((e) => (
                 <div key={e.name} className="flex items-center gap-2 rounded-lg border border-line bg-card px-2.5 py-1.5 text-[12px] font-medium">
@@ -134,19 +136,20 @@ function Dot({ on, off = 'bg-faint' }: { on: boolean; off?: string }) {
 function HomeView() {
   const [live, setLive] = useState(0);
   const reduced = useReducedMotion();
+  const { t: { app: a } } = useI18n();
   useEffect(() => {
     if (reduced) return;
     const t = setInterval(() => setLive((n) => n + 1 + Math.floor(Math.random() * 4)), 1400);
     return () => clearInterval(t);
   }, [reduced]);
   const stats = [
-    { k: 'Requests', v: 12480 + live, f: (n: number) => Math.round(n).toLocaleString('en-US') },
-    { k: 'Tokens', v: 38.2 + live * 0.004, f: (n: number) => `${n.toFixed(1)}M` },
-    { k: 'Est. cost', v: 214 + Math.floor(live / 6), f: (n: number) => `$${Math.round(n)}` },
+    { k: a.requests, v: 12480 + live, f: (n: number) => Math.round(n).toLocaleString(a.numLocale) },
+    { k: a.tokens, v: 38.2 + live * 0.004, f: (n: number) => `${n.toFixed(1)}M` },
+    { k: a.estCost, v: 214 + Math.floor(live / 6), f: (n: number) => `$${Math.round(n)}` },
   ];
   return (
     <>
-      <Title title="Dashboard" subtitle="Usage across every engine, last 14 days." />
+      <Title title={a.dashboard} subtitle={a.mockDashboardSub} />
       <div className="grid grid-cols-3 gap-2">
         {stats.map((s, i) => (
           <div key={s.k} className="animate-rise rounded-xl border border-line bg-card p-2.5" style={stagger(i)}>
@@ -158,7 +161,7 @@ function HomeView() {
         ))}
       </div>
       <div className="mt-3 rounded-xl border border-line bg-card p-3">
-        <p className="text-[11px] text-muted">Requests per day</p>
+        <p className="text-[11px] text-muted">{a.perDay}</p>
         <div className="mt-3 flex h-28 items-end gap-1" aria-hidden="true">
           {BARS.map((h, i) => (
             <div
@@ -185,19 +188,20 @@ function HomeView() {
 }
 
 function ProvidersView() {
+  const { t: { app: a } } = useI18n();
   return (
     <>
-      <Title title="Providers" subtitle="Sign in with OAuth, paste API keys or add sessions." />
+      <Title title={a.nav.providers} subtitle={a.providersSub} />
       <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
         {PROVIDERS.slice(0, 8).map((p, i) => (
           <div key={p.name} className="animate-rise flex items-center gap-2.5 rounded-xl border border-line bg-card px-3 py-2.5" style={stagger(i, 50)}>
             <BrandIcon brand={p} className="size-5" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-medium">{p.name}</p>
-              <p className="text-[11px] text-muted">{p.detail}</p>
+              <p className="text-[11px] text-muted">{p.detail && (a.detail[p.detail] ?? p.detail)}</p>
             </div>
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${i < 4 ? 'bg-ok/15 text-ok' : 'bg-btn-hover text-muted'}`}>
-              {i < 4 ? 'Connected' : 'Add'}
+              {i < 4 ? a.connected : a.add}
             </span>
           </div>
         ))}
@@ -207,6 +211,7 @@ function ProvidersView() {
 }
 
 function QuotaView() {
+  const { t: { app: a } } = useI18n();
   const rows = [
     { name: 'Claude · Max', a: 34, b: 71 },
     { name: 'Codex · Team', a: 0, b: 97 },
@@ -214,19 +219,19 @@ function QuotaView() {
   ];
   return (
     <>
-      <Title title="Quota" subtitle="Track quota usage for supported accounts." />
+      <Title title={a.quota} subtitle={a.mockQuotaSub} />
       <div className="flex flex-col gap-2">
         {rows.map((r, n) => (
           <div key={r.name} className="animate-rise rounded-xl border border-line bg-card p-3" style={stagger(n, 90)}>
             <p className="text-[12px] font-semibold">{r.name}</p>
             {[
-              ['Primary (5h)', r.a],
-              ['Weekly', r.b],
+              [a.primary, r.a],
+              [a.weekly, r.b],
             ].map(([k, v]) => (
               <div key={k} className="mt-2">
                 <div className="flex justify-between text-[11px]">
                   <span>{k}</span>
-                  <span className={Number(v) > 90 ? 'text-warn' : 'text-accent'}>{v}% used</span>
+                  <span className={Number(v) > 90 ? 'text-warn' : 'text-accent'}>{a.used(Number(v))}</span>
                 </div>
                 <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-btn-hover">
                   <div
@@ -244,14 +249,15 @@ function QuotaView() {
 }
 
 function FallbackView() {
+  const { t: { app: a } } = useI18n();
   const chain = ['claude-opus-4', 'gpt-5-codex', 'gemini-2.5-pro'];
   return (
     <>
-      <Title title="Fallback" subtitle="Virtual models fall back automatically when quota runs out." />
+      <Title title={a.nav.fallback} subtitle={a.mockFallbackSub} />
       <div className="animate-rise rounded-xl border border-line bg-card p-3" style={stagger(0)}>
         <div className="flex items-center justify-between">
           <p className="font-mono text-[13px] font-semibold">smart-coder</p>
-          <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold text-accent">virtual</span>
+          <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold text-accent">{a.virtual}</span>
         </div>
         <ol className="mt-3 flex flex-col gap-1.5">
           {chain.map((m, i) => (
@@ -264,7 +270,7 @@ function FallbackView() {
               <span className="flex-1 font-mono">{m}</span>
               {i === 1 && <Dot on />}
               <span className={`text-[10px] font-semibold ${i === 0 ? 'text-warn' : i === 1 ? 'text-ok' : 'text-faint'}`}>
-                {i === 0 ? 'quota exhausted' : i === 1 ? 'serving' : 'standby'}
+                {i === 0 ? a.exhausted : i === 1 ? a.serving : a.standby}
               </span>
             </li>
           ))}
@@ -275,21 +281,22 @@ function FallbackView() {
 }
 
 function AgentsView() {
+  const { t: { app: a } } = useI18n();
   return (
     <>
-      <Title title="Agents" subtitle="Route each CLI tool through a connected provider." />
+      <Title title={a.nav.agents} subtitle={a.agentsSub} />
       <div className="flex flex-col gap-1.5">
-        {AGENTS.slice(0, 5).map((a, i) => (
-          <div key={a.name} className="animate-rise flex items-center gap-3 rounded-xl border border-line bg-card px-3 py-2" style={stagger(i, 70)}>
-            <BrandIcon brand={a} className="size-6" />
+        {AGENTS.slice(0, 5).map((ag, i) => (
+          <div key={ag.name} className="animate-rise flex items-center gap-3 rounded-xl border border-line bg-card px-3 py-2" style={stagger(i, 70)}>
+            <BrandIcon brand={ag} className="size-6" />
             <div className="min-w-0 flex-1">
               <p className="flex items-center gap-2 text-[13px] font-medium">
-                {a.name}
+                {ag.name}
                 <span className={`rounded-full px-1.5 text-[10px] font-semibold ${i === 0 ? 'bg-warn/15 text-warn' : 'bg-ok/15 text-ok'}`}>
-                  {i === 0 ? 'Installed' : 'Configured'}
+                  {i === 0 ? a.installed : a.configured}
                 </span>
               </p>
-              <p className="truncate font-mono text-[10.5px] text-muted">{a.config}</p>
+              <p className="truncate font-mono text-[10.5px] text-muted">{ag.config}</p>
             </div>
           </div>
         ))}

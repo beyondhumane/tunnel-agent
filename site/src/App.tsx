@@ -6,10 +6,12 @@ import { NotFound } from './components/NotFound';
 import { useEffect } from 'react';
 import { RouterProvider, useRoute } from './lib/router';
 import { pageMeta } from './lib/seo';
+import { I18nProvider, useI18n, type Lang } from './lib/i18n';
 
 function Page() {
   const route = useRoute();
-  const { title } = pageMeta(route);
+  const { lang } = useI18n();
+  const { title } = pageMeta(route, lang);
   useEffect(() => {
     document.title = title;
   }, [title]);
@@ -33,8 +35,9 @@ function Backdrop() {
   );
 }
 
-export function Site({ path }: { path: string }) {
+export function Site({ path, lang = 'en' }: { path: string; lang?: Lang }) {
   return (
+    <I18nProvider lang={lang}>
     <RouterProvider path={path}>
       <div className="relative flex min-h-dvh flex-col">
         <Backdrop />
@@ -45,5 +48,6 @@ export function Site({ path }: { path: string }) {
         <Footer />
       </div>
     </RouterProvider>
+    </I18nProvider>
   );
 }

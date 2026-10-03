@@ -5,6 +5,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { headingSlug } from '@/lib/docs';
 import { url } from '@/lib/site';
+import { useI18n } from '@/lib/i18n';
 
 /** Doc-to-doc links are written as `agents.md#section` in the sources. */
 function href(target: string) {
@@ -48,12 +49,13 @@ const decode = (s: string) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').repl
 
 function CodeBlock({ code, lang }: { code: string; lang?: string }) {
   const [copied, setCopied] = useState(false);
+  const { t } = useI18n();
   return (
     <pre data-lang={lang || undefined}>
       <button
         type="button"
         className="copy"
-        aria-label="Copy code"
+        aria-label={t.docs.copy}
         onClick={() => {
           void navigator.clipboard?.writeText(code).then(() => {
             setCopied(true);
@@ -69,11 +71,12 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
 }
 
 function Heading({ depth, id, children }: { depth: number; id: string; children: ReactNode }) {
+  const { t } = useI18n();
   const H = depth <= 2 ? 'h2' : 'h3';
   return (
     <H id={id}>
       {children}
-      <a href={`#${id}`} className="anchor" aria-label="Link to this section">
+      <a href={`#${id}`} className="anchor" aria-label={t.docs.anchor}>
         #
       </a>
     </H>
@@ -140,7 +143,7 @@ function block(t: Token, key: number): ReactNode {
         <blockquote key={key} className={kind}>
           {m && (
             <p className="callout-title">
-              <Icon className="size-4" /> {m[1] === 'TIP' ? 'Tip' : m[1] === 'WARNING' ? 'Warning' : 'Note'}
+              <Icon className="size-4" /> <CalloutTitle kind={m[1]} />
             </p>
           )}
           {body.map(block)}
@@ -152,6 +155,11 @@ function block(t: Token, key: number): ReactNode {
     default:
       return null;
   }
+}
+
+function CalloutTitle({ kind }: { kind: string }) {
+  const { t } = useI18n();
+  return kind === 'TIP' ? t.docs.tip : kind === 'WARNING' ? t.docs.warning : t.docs.note;
 }
 
 export function Markdown({ source }: { source: string }) {

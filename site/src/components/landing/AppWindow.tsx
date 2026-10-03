@@ -35,20 +35,21 @@ import { AGENTS, PROVIDERS, IDES, type Brand } from './brands';
 import { BrandIcon } from './ui';
 import { CountUp, useInView, useReducedMotion } from '@/lib/motion';
 import { VERSION } from '@/lib/site';
+import { useI18n } from '@/lib/i18n';
 
 export type WindowView = 'home' | 'cliproxy' | 'perplexity' | 'quota' | 'fallback' | 'agents' | 'config' | 'logs';
 
 const brand = (name: string): Brand => [...PROVIDERS, ...IDES].find((p) => p.name === name) ?? { name };
 const stagger = (i: number, step = 55) => ({ animationDelay: `${80 + i * step}ms` }) as CSSProperties;
 
-const NAV: { id: WindowView; label: string; Icon: typeof LayoutGrid; badge?: number; match?: WindowView[] }[] = [
-  { id: 'home', label: 'Home', Icon: LayoutGrid },
-  { id: 'cliproxy', label: 'Providers', Icon: Server, badge: 3, match: ['cliproxy', 'perplexity'] },
-  { id: 'quota', label: 'Quota', Icon: BarChart3, badge: 5 },
-  { id: 'fallback', label: 'Fallback', Icon: Waypoints },
-  { id: 'agents', label: 'Agents', Icon: Bot, badge: 5 },
-  { id: 'logs', label: 'Logs', Icon: ScrollText },
-  { id: 'config', label: 'Configuration', Icon: Settings },
+const NAV: { id: WindowView; key: 'home' | 'providers' | 'quota' | 'fallback' | 'agents' | 'logs' | 'config'; Icon: typeof LayoutGrid; badge?: number; match?: WindowView[] }[] = [
+  { id: 'home', key: 'home', Icon: LayoutGrid },
+  { id: 'cliproxy', key: 'providers', Icon: Server, badge: 3, match: ['cliproxy', 'perplexity'] },
+  { id: 'quota', key: 'quota', Icon: BarChart3, badge: 5 },
+  { id: 'fallback', key: 'fallback', Icon: Waypoints },
+  { id: 'agents', key: 'agents', Icon: Bot, badge: 5 },
+  { id: 'logs', key: 'logs', Icon: ScrollText },
+  { id: 'config', key: 'config', Icon: Settings },
 ];
 
 /**
@@ -57,6 +58,7 @@ const NAV: { id: WindowView; label: string; Icon: typeof LayoutGrid; badge?: num
  */
 export function AppWindow({ view, onView }: { view: WindowView; onView: (v: WindowView) => void }) {
   const [engines, setEngines] = useState({ cliproxy: true, perplexity: true, proxy: true });
+  const { t: { app: a } } = useI18n();
   const toggle = (k: keyof typeof engines) => setEngines((e) => ({ ...e, [k]: !e[k] }));
 
   return (
@@ -77,8 +79,8 @@ export function AppWindow({ view, onView }: { view: WindowView; onView: (v: Wind
             </span>
             <PanelLeft className="hidden size-4 text-muted sm:block" />
           </div>
-          <nav className="flex flex-col gap-0.5 px-2" aria-label="App replica navigation">
-            {NAV.map(({ id, label, Icon, badge, match }) => {
+          <nav className="flex flex-col gap-0.5 px-2" aria-label={a.navLabel}>
+            {NAV.map(({ id, key, Icon, badge, match }) => {
               const active = (match ?? [id]).includes(view);
               return (
                 <button
@@ -91,7 +93,7 @@ export function AppWindow({ view, onView }: { view: WindowView; onView: (v: Wind
                   }`}
                 >
                   <Icon className="size-4 shrink-0" />
-                  <span className="hidden flex-1 text-left sm:inline">{label}</span>
+                  <span className="hidden flex-1 text-left sm:inline">{a.nav[key]}</span>
                   {badge && (
                     <span className={`hidden rounded-full px-1.5 text-[11px] sm:inline ${active ? 'bg-white/20' : 'text-muted'}`}>{badge}</span>
                   )}
@@ -100,20 +102,20 @@ export function AppWindow({ view, onView }: { view: WindowView; onView: (v: Wind
             })}
           </nav>
           <div className="mt-auto hidden border-t border-line px-2 pt-3 sm:block">
-            <p className="px-2 pb-2 text-[10px] font-semibold tracking-wider text-faint">STATUS</p>
+            <p className="px-2 pb-2 text-[10px] font-semibold tracking-wider text-faint">{a.status}</p>
             <div className="flex flex-col gap-1.5">
               {(
                 [
                   ['cliproxy', 'CLIProxyAPI'],
                   ['perplexity', 'Perplexity'],
-                  ['proxy', 'Local Proxy'],
+                  ['proxy', a.localProxy],
                 ] as const
               ).map(([k, name]) => (
                 <button
                   key={k}
                   type="button"
                   onClick={() => toggle(k)}
-                  title={engines[k] ? `Stop ${name}` : `Start ${name}`}
+                  title={engines[k] ? a.stopEngine(name) : a.startEngine(name)}
                   className="flex items-center gap-2.5 rounded-lg border border-line bg-card px-3 py-2 text-[12.5px] font-medium transition-colors hover:border-line-strong"
                 >
                   <Dot on={engines[k]} />
@@ -126,7 +128,7 @@ export function AppWindow({ view, onView }: { view: WindowView; onView: (v: Wind
           <div className="mt-3 hidden items-end justify-between border-t border-line px-3 py-2.5 sm:flex">
             <div className="text-[10.5px] leading-tight">
               <p className="text-faint">v{VERSION} · MIT</p>
-              <p className="text-accent">Report an issue</p>
+              <p className="text-accent">{a.report}</p>
             </div>
             <Sun className="size-4 text-muted" />
           </div>
@@ -239,6 +241,7 @@ function HomeView() {
   const [metric, setMetric] = useState<keyof typeof SERIES>('Calls');
   const [live, setLive] = useState(0);
   const reduced = useReducedMotion();
+  const { t: { app: a } } = useI18n();
   useEffect(() => {
     if (reduced) return;
     const t = setInterval(() => setLive((n) => n + 1 + Math.floor(Math.random() * 3)), 1600);
@@ -247,14 +250,14 @@ function HomeView() {
   const k = { Today: 0.12, '7 days': 1, '14 days': 1.9, '30 days': 3.8, All: 7.2 }[range];
   const calls = Math.round(1468 * k) + live;
   const stats: { label: string; value: number; fmt: (n: number) => string; sub: string; tone: string }[] = [
-    { label: 'Total calls', value: calls, fmt: (n) => Math.round(n).toLocaleString('en-US'), sub: '3 providers', tone: 'text-accent' },
-    { label: 'Success rate', value: 95.6, fmt: (n) => `${n.toFixed(1)}%`, sub: `${Math.round(calls * 0.956)} successful`, tone: 'text-ok' },
-    { label: 'Failures', value: Math.round(calls * 0.044), fmt: (n) => `${Math.round(n)}`, sub: 'Failure rate 4.4%', tone: 'text-err' },
-    { label: 'Est. cost', value: 236.21 * k + live * 0.07, fmt: (n) => `$${n.toFixed(2)}`, sub: 'From model unit prices', tone: 'text-warn' },
-    { label: 'Total tokens', value: 193.7 * k + live * 0.02, fmt: (n) => `${n.toFixed(1)}M`, sub: 'Reasoning 12.5K', tone: 'text-accent' },
-    { label: 'Input tokens', value: 38.1 * k, fmt: (n) => `${n.toFixed(1)}M`, sub: 'Share 19.7%', tone: 'text-accent' },
-    { label: 'Output tokens', value: 896.4 * k, fmt: (n) => `${n.toFixed(1)}K`, sub: 'Share 0.5%', tone: 'text-accent' },
-    { label: 'Cache tokens', value: 177.2 * k, fmt: (n) => `${n.toFixed(1)}M`, sub: 'Hit rate 82.3%', tone: 'text-accent' },
+    { label: a.totalCalls, value: calls, fmt: (n) => Math.round(n).toLocaleString(a.numLocale), sub: a.nProviders(3), tone: 'text-accent' },
+    { label: a.successRate, value: 95.6, fmt: (n) => `${n.toFixed(1)}%`, sub: a.successful(Math.round(calls * 0.956)), tone: 'text-ok' },
+    { label: a.failures, value: Math.round(calls * 0.044), fmt: (n) => `${Math.round(n)}`, sub: a.failureRate('4.4%'), tone: 'text-err' },
+    { label: a.estCost, value: 236.21 * k + live * 0.07, fmt: (n) => `$${n.toFixed(2)}`, sub: a.fromPrices, tone: 'text-warn' },
+    { label: a.totalTokens, value: 193.7 * k + live * 0.02, fmt: (n) => `${n.toFixed(1)}M`, sub: a.reasoning('12.5K'), tone: 'text-accent' },
+    { label: a.inputTokens, value: 38.1 * k, fmt: (n) => `${n.toFixed(1)}M`, sub: a.share('19.7%'), tone: 'text-accent' },
+    { label: a.outputTokens, value: 896.4 * k, fmt: (n) => `${n.toFixed(1)}K`, sub: a.share('0.5%'), tone: 'text-accent' },
+    { label: a.cacheTokens, value: 177.2 * k, fmt: (n) => `${n.toFixed(1)}M`, sub: a.hitRate('82.3%'), tone: 'text-accent' },
   ];
   const data = SERIES[metric];
   const max = Math.max(...data);
@@ -262,7 +265,7 @@ function HomeView() {
 
   return (
     <>
-      <Title title="Dashboard" subtitle="Live overview of requests handled by the local proxy." />
+      <Title title={a.dashboard} subtitle={a.dashboardSub} />
       <Panel className="flex items-center justify-between gap-2 p-2">
         <div className="flex gap-0.5 overflow-x-auto [scrollbar-width:none]">
           {RANGES.map((r) => (
@@ -272,7 +275,7 @@ function HomeView() {
               onClick={() => setRange(r)}
               className={`shrink-0 rounded-lg px-3 py-1 text-[12.5px] transition-colors ${r === range ? 'bg-accent text-white' : 'hover:bg-btn-hover'}`}
             >
-              {r}
+              {a.ranges[r]}
             </button>
           ))}
         </div>
@@ -283,7 +286,7 @@ function HomeView() {
       </Panel>
       <div className="mt-3 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         {stats.map((s, i) => (
-          <Panel key={s.label} className="p-3" style={stagger(i)}>
+          <Panel key={i} className="p-3" style={stagger(i)}>
             <p className="text-[10px] tracking-[0.1em] text-muted uppercase">{s.label}</p>
             <p className={`mt-2 text-[21px] font-semibold tabular-nums ${s.tone}`}>
               <CountUp value={s.value} format={s.fmt} />
@@ -295,11 +298,11 @@ function HomeView() {
       <Panel className="mt-3 p-3.5" style={stagger(8)}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <p className="text-[13px] font-semibold text-accent">Usage chart</p>
-            <p className="text-[11.5px] text-muted">Trend over the selected time range.</p>
+            <p className="text-[13px] font-semibold text-accent">{a.chart}</p>
+            <p className="text-[11.5px] text-muted">{a.chartSub}</p>
           </div>
           <div className="w-52">
-            <Segmented items={(['Calls', 'Tokens', 'Cost'] as const).map((id) => ({ id, label: id }))} value={metric} onChange={setMetric} />
+            <Segmented items={(['Calls', 'Tokens', 'Cost'] as const).map((id) => ({ id, label: a.metrics[id] }))} value={metric} onChange={setMetric} />
           </div>
         </div>
         <svg key={metric + range} viewBox="0 0 600 160" className="mt-3 h-36 w-full" preserveAspectRatio="none" aria-hidden="true">
@@ -320,14 +323,14 @@ function HomeView() {
   );
 }
 
-const CLI_PROVIDERS: { b: Brand; on: boolean; detail: string; key?: boolean }[] = [
-  { b: brand('Claude'), on: true, detail: '1 connected account' },
-  { b: brand('OpenAI'), on: true, detail: '2 connected accounts' },
-  { b: brand('Kimi'), on: false, detail: '' },
-  { b: brand('Antigravity'), on: false, detail: '' },
-  { b: brand('xAI'), on: false, detail: '' },
-  { b: brand('Gemini'), on: true, detail: '1 API key', key: true },
-  { b: { name: 'Opencode' }, on: true, detail: '1 API key · opencode.ai/zen/go/v1', key: true },
+const CLI_PROVIDERS: { b: Brand; on: boolean; accounts?: number; key?: string }[] = [
+  { b: brand('Claude'), on: true, accounts: 1 },
+  { b: brand('OpenAI'), on: true, accounts: 2 },
+  { b: brand('Kimi'), on: false },
+  { b: brand('Antigravity'), on: false },
+  { b: brand('xAI'), on: false },
+  { b: brand('Gemini'), on: true, key: '' },
+  { b: { name: 'Opencode' }, on: true, key: 'opencode.ai/zen/go/v1' },
 ];
 
 function ProvidersView({
@@ -343,6 +346,7 @@ function ProvidersView({
 }) {
   const [enabled, setEnabled] = useState(() => CLI_PROVIDERS.map((p) => p.on));
   const [copied, setCopied] = useState(false);
+  const { t: { app: a } } = useI18n();
   const cli = engine === 'cliproxy';
   const port = cli ? 8317 : 8327;
   return (
@@ -357,16 +361,16 @@ function ProvidersView({
       />
       <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-[19px] font-semibold">Services</h3>
+          <h3 className="text-[19px] font-semibold">{a.services}</h3>
           <p className="max-w-sm text-[12.5px] text-muted">
-            {cli ? 'Unified proxy for OAuth and OpenAI-compatible upstream providers.' : 'OpenAI-compatible local API backed by Perplexity WebUI sessions.'}
+            {cli ? a.cliDesc : a.pplxDesc}
           </p>
         </div>
         <div className="flex items-center gap-2 text-muted">
           <code className="rounded-lg border border-line-strong bg-code px-2 py-1 font-mono text-[12px] font-semibold text-fg">http://127.0.0.1:{port}</code>
           <button
             type="button"
-            title="Copy endpoint"
+            title={a.copyEndpoint}
             onClick={() => {
               setCopied(true);
               setTimeout(() => setCopied(false), 1200);
@@ -375,7 +379,7 @@ function ProvidersView({
           >
             {copied ? <Check className="size-4 text-ok" /> : <Copy className="size-4" />}
           </button>
-          <button type="button" title={running ? 'Stop' : 'Start'} onClick={onToggle} className="rounded-md p-1 hover:bg-btn-hover">
+          <button type="button" title={running ? a.stop : a.start} onClick={onToggle} className="rounded-md p-1 hover:bg-btn-hover">
             {running ? <Square className="size-3.5 fill-err text-err" /> : <Play className="size-4 text-ok" />}
           </button>
         </div>
@@ -384,30 +388,34 @@ function ProvidersView({
         <Dot on={running} />
         <div className="flex-1">
           <p className="text-[13.5px] font-semibold">{cli ? 'CLIProxyAPI' : 'Perplexity WebUI Scraper'}</p>
-          <p className="text-[11.5px] text-muted">Listening on port {port}</p>
+          <p className="text-[11.5px] text-muted">{a.listening(port)}</p>
         </div>
-        <span className={`text-[12.5px] font-semibold ${running ? 'text-ok' : 'text-err'}`}>{running ? 'Running' : 'Stopped'}</span>
+        <span className={`text-[12.5px] font-semibold ${running ? 'text-ok' : 'text-err'}`}>{running ? a.running : a.stopped}</span>
       </Panel>
 
       {cli ? (
         <Panel className="mt-3 divide-y divide-line px-3" style={stagger(1)}>
           {CLI_PROVIDERS.map((p, i) => (
             <div key={p.b.name} className="animate-rise flex items-center gap-3 py-2.5" style={stagger(i + 2, 45)}>
-              <Switch on={enabled[i]} onChange={() => setEnabled((e) => e.map((v, j) => (j === i ? !v : v)))} label={`Enable ${p.b.name}`} />
+              <Switch on={enabled[i]} onChange={() => setEnabled((e) => e.map((v, j) => (j === i ? !v : v)))} label={a.enableX(p.b.name)} />
               <span className="grid size-8 shrink-0 place-items-center rounded-lg border border-line bg-side">
                 <BrandIcon brand={p.b} className="size-4.5" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-2 text-[13px] font-semibold">
                   {p.b.name}
-                  {!enabled[i] && <span className="rounded bg-warn/15 px-1.5 text-[10px] font-medium text-warn">disabled</span>}
+                  {!enabled[i] && <span className="rounded bg-warn/15 px-1.5 text-[10px] font-medium text-warn">{a.disabled}</span>}
                 </p>
-                {enabled[i] && p.detail && <p className="truncate text-[11.5px] text-ok">{p.detail}</p>}
+                {enabled[i] && (p.accounts || p.key !== undefined) && (
+                  <p className="truncate text-[11.5px] text-ok">
+                    {p.accounts ? a.accounts(p.accounts) : [a.apiKeys(1), p.key].filter(Boolean).join(' · ')}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-1.5 text-muted">
                 <Plus className="size-4" />
-                {p.key && <Pencil className="hidden size-3.5 sm:block" />}
-                {p.key && <SlidersHorizontal className="hidden size-3.5 sm:block" />}
+                {p.key !== undefined && <Pencil className="hidden size-3.5 sm:block" />}
+                {p.key !== undefined && <SlidersHorizontal className="hidden size-3.5 sm:block" />}
                 {enabled[i] && <Trash2 className="size-3.5 text-err" />}
                 <ChevronRight className="size-4" />
               </div>
@@ -419,31 +427,31 @@ function ProvidersView({
           <Panel className="mt-3 p-4" style={stagger(1)}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-[13.5px] font-semibold">Perplexity session accounts</p>
-                <p className="text-[11.5px] text-muted">Saved WebUI session tokens used by Perplexity WebUI Scraper.</p>
+                <p className="text-[13.5px] font-semibold">{a.sessions}</p>
+                <p className="text-[11.5px] text-muted">{a.sessionsSub}</p>
               </div>
               <Plus className="size-5 text-muted" />
             </div>
-            {['Pro · default', 'Pro · research'].map((a, i) => (
-              <div key={a} className="animate-rise mt-2.5 flex items-center gap-3 rounded-lg bg-side px-3 py-2.5" style={stagger(i + 2, 90)}>
+            {a.sessionLabels.map((label, i) => (
+              <div key={i} className="animate-rise mt-2.5 flex items-center gap-3 rounded-lg bg-side px-3 py-2.5" style={stagger(i + 2, 90)}>
                 <BrandIcon brand={{ name: 'Perplexity' }} className="size-6" />
                 <div className="flex-1">
-                  <p className="text-[12.5px] font-medium">{a}</p>
+                  <p className="text-[12.5px] font-medium">{label}</p>
                   <p className="font-mono text-[11px] text-muted">pplx-session ••••••••{i ? '7c1e' : 'a91f'}</p>
                 </div>
-                <span className="rounded-full bg-ok/15 px-2 py-0.5 text-[10px] font-semibold text-ok">Active</span>
+                <span className="rounded-full bg-ok/15 px-2 py-0.5 text-[10px] font-semibold text-ok">{a.active}</span>
               </div>
             ))}
           </Panel>
-          <Label>Available models</Label>
+          <Label>{a.models}</Label>
           <Panel className="p-4" style={stagger(4)}>
             <div className="flex items-center gap-3">
               <span className="grid size-8 place-items-center rounded-lg bg-accent-soft text-accent">
                 <Brain className="size-4" />
               </span>
               <div>
-                <p className="text-[13.5px] font-semibold">Available models</p>
-                <p className="text-[11.5px] text-muted">Models exposed by the running engine.</p>
+                <p className="text-[13.5px] font-semibold">{a.models}</p>
+                <p className="text-[11.5px] text-muted">{a.modelsSub}</p>
               </div>
             </div>
             {running ? (
@@ -455,7 +463,7 @@ function ProvidersView({
                 ))}
               </div>
             ) : (
-              <p className="mt-4 text-center text-[12px] text-muted">Start the engine to see available models</p>
+              <p className="mt-4 text-center text-[12px] text-muted">{a.startToSee}</p>
             )}
           </Panel>
         </>
@@ -477,6 +485,7 @@ const QUOTA: { b: Brand; plan: string; a: number; b5: number; reset: [string, st
 function QuotaView() {
   const [i, setI] = useState(1);
   const [spin, setSpin] = useState(0);
+  const { t: { app: a } } = useI18n();
   const q = QUOTA[i];
   return (
     <>
@@ -495,10 +504,10 @@ function QuotaView() {
       </div>
       <div className="mt-4">
         <Title
-          title="Quota"
-          subtitle="Track quota usage for supported CLIProxyAPI accounts."
+          title={a.quota}
+          subtitle={a.quotaSub}
           actions={
-            <Icon title="Refresh">
+            <Icon title={a.refresh}>
               <RefreshCw className="size-4 transition-transform duration-700" style={{ rotate: `${spin * 360}deg` }} onClick={() => setSpin((s) => s + 1)} />
             </Icon>
           }
@@ -510,17 +519,17 @@ function QuotaView() {
           <span className="font-mono text-[13px] tracking-wider">•••••••••••@••••••••</span>
           <RefreshCw className="ml-auto size-4 text-muted" />
         </div>
-        <p className="mt-4 text-[10.5px] font-semibold tracking-[0.12em] text-faint uppercase">Usage</p>
+        <p className="mt-4 text-[10.5px] font-semibold tracking-[0.12em] text-faint uppercase">{a.usage}</p>
         {(
           [
-            ['Primary (5h)', q.a, q.reset[0]],
-            ['Weekly', q.b5, q.reset[1]],
+            [a.primary, q.a, q.reset[0]],
+            [a.weekly, q.b5, q.reset[1]],
           ] as const
         ).map(([k, v, r], n) => (
           <div key={k} className="mt-3">
             <div className="flex justify-between text-[12.5px]">
               <span className="font-semibold">{k}</span>
-              <span className={`font-semibold ${v > 90 ? 'text-warn' : 'text-accent'}`}>{v}% used</span>
+              <span className={`font-semibold ${v > 90 ? 'text-warn' : 'text-accent'}`}>{a.used(v)}</span>
             </div>
             <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-btn-hover">
               <div
@@ -528,7 +537,7 @@ function QuotaView() {
                 style={{ width: `${v}%`, animationDelay: `${150 + n * 150}ms` }}
               />
             </div>
-            <p className="mt-1 text-[11px] text-faint">Resets in {r}</p>
+            <p className="mt-1 text-[11px] text-faint">{a.resets(r)}</p>
           </div>
         ))}
       </Panel>
@@ -547,6 +556,7 @@ function FallbackView() {
   const [open, setOpen] = useState(true);
   const [chain, setChain] = useState(CHAIN);
   const [serving, setServing] = useState(0);
+  const { t: { app: a } } = useI18n();
   const reduced = useReducedMotion();
   useEffect(() => {
     if (reduced || !enabled) return;
@@ -562,19 +572,19 @@ function FallbackView() {
 
   return (
     <>
-      <Title title="Model Fallback" subtitle="Virtual models map to real provider models with automatic fallback when quota is exhausted." />
-      <Label>Settings</Label>
+      <Title title={a.fallbackTitle} subtitle={a.fallbackSub} />
+      <Label>{a.settings}</Label>
       <Panel className="flex items-center gap-4 p-4">
         <div className="flex-1">
-          <p className="text-[13.5px] font-semibold">Enable Fallback</p>
+          <p className="text-[13.5px] font-semibold">{a.enableFallback}</p>
           <p className="text-[11.5px] text-muted">
-            Virtual models fall back to alternative providers when quota is exhausted. This switch also starts and stops the local proxy.
+            {a.enableFallbackSub}
           </p>
         </div>
-        <Switch on={enabled} onChange={() => setEnabled((e) => !e)} label="Enable fallback" />
+        <Switch on={enabled} onChange={() => setEnabled((e) => !e)} label={a.enableFallback} />
       </Panel>
       <div className="mt-5 mb-2 flex items-center justify-between px-1">
-        <p className="text-[10.5px] font-semibold tracking-[0.12em] text-faint uppercase">Virtual models</p>
+        <p className="text-[10.5px] font-semibold tracking-[0.12em] text-faint uppercase">{a.virtualModels}</p>
         <span className="flex items-center gap-2">
           <span className="rounded-full bg-accent-soft px-1.5 text-[11px] text-accent">1</span>
           <Plus className="size-4 text-muted" />
@@ -582,15 +592,15 @@ function FallbackView() {
       </div>
       <Panel className="p-3.5" style={stagger(1)}>
         <div className="flex items-center gap-3">
-          <button type="button" onClick={() => setOpen((o) => !o)} aria-label="Toggle entries" className="rounded p-0.5 hover:bg-btn-hover">
+          <button type="button" onClick={() => setOpen((o) => !o)} aria-label={a.toggleEntries} className="rounded p-0.5 hover:bg-btn-hover">
             <ChevronDown className={`size-4 transition-transform duration-200 ${open ? '' : '-rotate-90'}`} />
           </button>
           <div className="flex-1">
             <p className="font-mono text-[13.5px] font-semibold">claude-opus-4-8</p>
-            <p className="text-[11px] text-muted">{chain.length} entries</p>
+            <p className="text-[11px] text-muted">{a.entries(chain.length)}</p>
           </div>
           <Trash2 className="size-4 text-err" />
-          <Switch on={enabled} onChange={() => setEnabled((e) => !e)} label="Enable virtual model" />
+          <Switch on={enabled} onChange={() => setEnabled((e) => !e)} label={a.enableVirtual} />
         </div>
         {open && (
           <ol className="mt-3 border-t border-line pt-2">
@@ -611,22 +621,22 @@ function FallbackView() {
                       {e.label}
                       {live && (
                         <span className="flex items-center gap-1 text-[10px] font-medium text-ok">
-                          <Dot on /> serving
+                          <Dot on /> {a.serving}
                         </span>
                       )}
-                      {enabled && i < serving && <span className="text-[10px] font-medium text-warn">quota exhausted</span>}
+                      {enabled && i < serving && <span className="text-[10px] font-medium text-warn">{a.exhausted}</span>}
                     </p>
                     <p className="font-mono text-[11px] text-muted">{e.model}</p>
                   </div>
                   <div className="flex items-center gap-1 text-muted">
                     <CirclePlay className="size-4" />
                     {i > 0 && (
-                      <Icon title="Move up">
+                      <Icon title={a.moveUp}>
                         <ArrowUp className="size-3.5" onClick={() => move(i, -1)} />
                       </Icon>
                     )}
                     {i < chain.length - 1 && (
-                      <Icon title="Move down">
+                      <Icon title={a.moveDown}>
                         <ArrowDown className="size-3.5" onClick={() => move(i, 1)} />
                       </Icon>
                     )}
@@ -636,34 +646,25 @@ function FallbackView() {
               );
             })}
             <li className="flex items-center gap-1.5 px-2 pt-1.5 text-[12px] text-accent">
-              <CirclePlus className="size-4" /> Add Entry
+              <CirclePlus className="size-4" /> {a.addEntry}
             </li>
           </ol>
         )}
       </Panel>
-      <p className="mt-4 px-1 text-[11.5px] text-muted">Point your agent at a virtual model name to use the chain.</p>
+      <p className="mt-4 px-1 text-[11.5px] text-muted">{a.fallbackHint}</p>
     </>
   );
 }
 
-const AGENT_INFO: Record<string, string> = {
-  'Claude Code': "Anthropic's official CLI coding agent.",
-  'Codex CLI': 'OpenAI Codex command-line interface.',
-  OpenCode: 'Open-source AI coding agent.',
-  Pi: 'Pi coding agent by pi.dev.',
-  'Oh My Pi': 'Batteries-included Pi distribution.',
-  'Factory Droid': "Factory's AI coding agent.",
-  'Grok Build': "xAI's terminal coding agent.",
-};
-
 function AgentsView() {
   const [configured, setConfigured] = useState(() => AGENTS.map((_, i) => i > 0 && i < 6));
   const installed = AGENTS.length - 1;
+  const { t: { app: a } } = useI18n();
   return (
     <>
       <Title
-        title="Agents"
-        subtitle="Route each CLI tool through a connected provider."
+        title={a.nav.agents}
+        subtitle={a.agentsSub}
         actions={
           <>
             <Settings className="size-4" />
@@ -672,27 +673,27 @@ function AgentsView() {
         }
       />
       <div className="-mt-2 flex gap-2 text-[12px] font-medium">
-        <span className="rounded-md bg-ok/15 px-2 py-0.5 text-ok">{installed} installed</span>
-        <span className="rounded-md bg-accent-soft px-2 py-0.5 text-accent">{configured.filter(Boolean).length} configured</span>
+        <span className="rounded-md bg-ok/15 px-2 py-0.5 text-ok">{a.nInstalled(installed)}</span>
+        <span className="rounded-md bg-accent-soft px-2 py-0.5 text-accent">{a.nConfigured(configured.filter(Boolean).length)}</span>
       </div>
-      <Label>Installed</Label>
+      <Label>{a.installed}</Label>
       <div className="flex flex-col gap-2">
-        {AGENTS.slice(0, installed).map((a, i) => (
-          <Panel key={a.name} className="flex items-center gap-3.5 px-4 py-3" style={stagger(i, 60)}>
-            <BrandIcon brand={a} className="size-8" />
+        {AGENTS.slice(0, installed).map((ag, i) => (
+          <Panel key={ag.name} className="flex items-center gap-3.5 px-4 py-3" style={stagger(i, 60)}>
+            <BrandIcon brand={ag} className="size-8" />
             <div className="min-w-0 flex-1">
               <p className="flex items-center gap-2 text-[13.5px] font-semibold">
-                {a.name}
+                {ag.name}
                 <span className={`rounded px-1.5 text-[10px] font-semibold ${configured[i] ? 'bg-ok/15 text-ok' : 'bg-warn/15 text-warn'}`}>
-                  {configured[i] ? 'Configured' : 'Installed'}
+                  {configured[i] ? a.configured : a.installed}
                 </span>
               </p>
-              <p className="text-[11.5px] text-muted">{AGENT_INFO[a.name]}</p>
-              <p className="truncate font-mono text-[11px] text-muted">{a.config}</p>
+              <p className="text-[11.5px] text-muted">{a.agentInfo[ag.name]}</p>
+              <p className="truncate font-mono text-[11px] text-muted">{ag.config}</p>
             </div>
             <div className="flex items-center gap-1 text-muted">
               <ExternalLink className="hidden size-4 sm:block" />
-              <Icon title={configured[i] ? 'Restore original config' : 'Configure'}>
+              <Icon title={configured[i] ? a.restore : a.configure}>
                 <Settings className="size-4" onClick={() => setConfigured((c) => c.map((v, j) => (j === i ? !v : v)))} />
               </Icon>
             </div>
@@ -707,6 +708,7 @@ function ConfigView() {
   const [tab, setTab] = useState<'general' | 'cli' | 'pplx'>('general');
   const [opts, setOpts] = useState({ updates: true, login: true, hide: true, debug: false, usage: true, retry: true });
   const [checking, setChecking] = useState<'idle' | 'busy' | 'done'>('idle');
+  const { t: { app: a } } = useI18n();
   const flip = (k: keyof typeof opts) => setOpts((o) => ({ ...o, [k]: !o[k] }));
   const Row = ({ title, sub, children }: { title: string; sub: string; children: ReactNode }) => (
     <div className="flex items-center gap-4 px-4 py-3">
@@ -726,7 +728,7 @@ function ConfigView() {
     <>
       <Segmented
         items={[
-          { id: 'general', label: 'General' },
+          { id: 'general', label: a.general },
           { id: 'cli', label: 'CLIProxyAPI' },
           { id: 'pplx', label: 'Perplexity' },
         ]}
@@ -736,10 +738,10 @@ function ConfigView() {
       <div key={tab} className="animate-view mt-4">
         {tab === 'general' ? (
           <>
-            <Title title="General" subtitle="App appearance and startup." />
+            <Title title={a.general} subtitle={a.generalSub} />
             <Label>Tunnel Agent</Label>
             <Panel className="divide-y divide-line">
-              <Row title="Tunnel Agent" sub={checking === 'done' ? `Up to date: ${VERSION}` : `Installed: ${VERSION}`}>
+              <Row title="Tunnel Agent" sub={checking === 'done' ? a.upToDateV(VERSION) : a.installedV(VERSION)}>
                 <button
                   type="button"
                   onClick={() => {
@@ -750,26 +752,26 @@ function ConfigView() {
                 >
                   {checking === 'busy' && <RefreshCw className="size-3.5 animate-spin" />}
                   {checking === 'done' && <Check className="size-3.5 text-ok" />}
-                  Check
+                  {a.check}
                 </button>
               </Row>
-              <Row title="Auto-check for app updates" sub="Check GitHub for a new Tunnel Agent version on startup.">
-                <Switch on={opts.updates} onChange={() => flip('updates')} label="Auto-check for updates" />
+              <Row title={a.autoCheck} sub={a.autoCheckSub}>
+                <Switch on={opts.updates} onChange={() => flip('updates')} label={a.autoCheck} />
               </Row>
             </Panel>
-            <Label>App</Label>
+            <Label>{a.appSection}</Label>
             <Panel className="divide-y divide-line" style={stagger(2)}>
-              <Row title="Launch at login" sub="Start automatically and stay in the system tray.">
-                <Switch on={opts.login} onChange={() => flip('login')} label="Launch at login" />
+              <Row title={a.login} sub={a.loginSub}>
+                <Switch on={opts.login} onChange={() => flip('login')} label={a.login} />
               </Row>
-              <Row title="Theme" sub="Follow system theme or force light/dark mode.">
-                <Select value="System" />
+              <Row title={a.theme} sub={a.themeSub}>
+                <Select value={a.system} />
               </Row>
-              <Row title="Language" sub="Choose the display language.">
-                <Select value="System default" />
+              <Row title={a.language} sub={a.languageSub}>
+                <Select value={a.systemDefault} />
               </Row>
-              <Row title="Hide sensitive information" sub="Replaces account emails with dots to keep them private.">
-                <Switch on={opts.hide} onChange={() => flip('hide')} label="Hide sensitive information" />
+              <Row title={a.hide} sub={a.hideSub}>
+                <Switch on={opts.hide} onChange={() => flip('hide')} label={a.hide} />
               </Row>
             </Panel>
           </>
@@ -777,31 +779,31 @@ function ConfigView() {
           <>
             <Title
               title={tab === 'cli' ? 'CLIProxyAPI' : 'Perplexity WebUI Scraper'}
-              subtitle={tab === 'cli' ? 'Engine binary, network and routing.' : 'Engine binary and session settings.'}
+              subtitle={tab === 'cli' ? a.cliSub : a.pplxSub}
             />
-            <Label>Engine</Label>
+            <Label>{a.engine}</Label>
             <Panel className="divide-y divide-line">
-              <Row title="Version" sub={tab === 'cli' ? 'Installed: v6.6.80 · latest' : 'Installed: v0.9.4 · latest'}>
+              <Row title={a.version} sub={`${a.installedV(tab === 'cli' ? 'v6.6.80' : 'v0.9.4')} · ${a.latest}`}>
                 <span className="flex items-center gap-1.5 text-[12px] text-ok">
-                  <Check className="size-3.5" /> Up to date
+                  <Check className="size-3.5" /> {a.upToDate}
                 </span>
               </Row>
-              <Row title="Port" sub="Local port the engine listens on.">
+              <Row title={a.port} sub={a.portSub}>
                 <code className="rounded-lg border border-line-strong bg-code px-2.5 py-1 font-mono text-[12.5px]">{tab === 'cli' ? 8317 : 8327}</code>
               </Row>
               {tab === 'cli' && (
-                <Row title="Routing strategy" sub="How requests are spread across accounts.">
-                  <Select value="Round robin" />
+                <Row title={a.routing} sub={a.routingSub}>
+                  <Select value={a.roundRobin} />
                 </Row>
               )}
-              <Row title="Request retry" sub="Retry failed upstream requests automatically.">
-                <Switch on={opts.retry} onChange={() => flip('retry')} label="Request retry" />
+              <Row title={a.retry} sub={a.retrySub}>
+                <Switch on={opts.retry} onChange={() => flip('retry')} label={a.retry} />
               </Row>
-              <Row title="Usage statistics" sub="Record requests for the dashboard and logs.">
-                <Switch on={opts.usage} onChange={() => flip('usage')} label="Usage statistics" />
+              <Row title={a.usageStats} sub={a.usageStatsSub}>
+                <Switch on={opts.usage} onChange={() => flip('usage')} label={a.usageStats} />
               </Row>
-              <Row title="Debug logging" sub="Verbose engine output in Proxy Logs.">
-                <Switch on={opts.debug} onChange={() => flip('debug')} label="Debug logging" />
+              <Row title={a.debug} sub={a.debugSub}>
+                <Switch on={opts.debug} onChange={() => flip('debug')} label={a.debug} />
               </Row>
             </Panel>
           </>
@@ -830,6 +832,7 @@ function LogsView() {
   const [tab, setTab] = useState<'req' | 'proxy'>('req');
   const [rows, setRows] = useState(seed);
   const [q, setQ] = useState('');
+  const { t: { app: a } } = useI18n();
   const [ref, inView] = useInView<HTMLDivElement>();
   const reduced = useReducedMotion();
   useEffect(() => {
@@ -847,8 +850,8 @@ function LogsView() {
   return (
     <div ref={ref}>
       <Title
-        title="Logs"
-        subtitle="Request traffic routed through the local proxy."
+        title={a.nav.logs}
+        subtitle={a.logsSub}
         actions={
           <>
             <Download className="size-4" />
@@ -859,8 +862,8 @@ function LogsView() {
       />
       <Segmented
         items={[
-          { id: 'req', label: 'Requests' },
-          { id: 'proxy', label: 'Proxy Logs' },
+          { id: 'req', label: a.requests },
+          { id: 'proxy', label: a.proxyLogs },
         ]}
         value={tab}
         onChange={setTab}
@@ -869,9 +872,9 @@ function LogsView() {
         <>
           <div className="mt-3 flex flex-wrap items-end gap-x-6 gap-y-2">
             {[
-              ['Total', `${1852 + rows.length}`],
-              ['Success', `${Math.round((ok / rows.length) * 100)}%`],
-              ['Avg time', `${(rows.reduce((s, r) => s + r.ms, 0) / rows.length).toFixed(1)}s`],
+              [a.total, `${1852 + rows.length}`],
+              [a.success, `${Math.round((ok / rows.length) * 100)}%`],
+              [a.avgTime, `${(rows.reduce((s, r) => s + r.ms, 0) / rows.length).toFixed(1)}s`],
             ].map(([k, v]) => (
               <div key={k}>
                 <p className="text-[11.5px] text-muted">{k}</p>
@@ -884,9 +887,9 @@ function LogsView() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search requests…"
+              placeholder={a.search}
               className="w-full bg-transparent outline-none placeholder:text-muted"
-              aria-label="Search requests"
+              aria-label={a.searchLabel}
             />
           </label>
           <Panel className="mt-3 divide-y divide-line px-3">
@@ -906,7 +909,7 @@ function LogsView() {
                 <span className="hidden w-32 text-right font-mono text-[11px] text-faint md:inline">{r.at}</span>
               </div>
             ))}
-            {!shown.length && <p className="py-6 text-center text-[12px] text-muted">No requests match “{q}”.</p>}
+            {!shown.length && <p className="py-6 text-center text-[12px] text-muted">{a.noMatch(q)}</p>}
           </Panel>
         </>
       ) : (

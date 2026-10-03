@@ -1,18 +1,22 @@
 import { Monitor, Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/lib/theme';
 import type { ThemePref } from '@/lib/theme';
+import { useI18n } from '@/lib/i18n';
 
-const OPTIONS: { value: ThemePref; label: string; Icon: typeof Sun }[] = [
-  { value: 'light', label: 'Light', Icon: Sun },
-  { value: 'system', label: 'System', Icon: Monitor },
-  { value: 'dark', label: 'Dark', Icon: Moon },
+const OPTIONS: { value: ThemePref; Icon: typeof Sun }[] = [
+  { value: 'light', Icon: Sun },
+  { value: 'system', Icon: Monitor },
+  { value: 'dark', Icon: Moon },
 ];
 
 export function ThemeToggle() {
   const [pref, setPref] = useTheme();
+  const { t } = useI18n();
   return (
-    <div role="radiogroup" aria-label="Theme" className="inline-flex items-center rounded-full border border-line bg-card p-0.5">
-      {OPTIONS.map(({ value, label, Icon }) => (
+    <div role="radiogroup" aria-label={t.theme.label} className="inline-flex items-center rounded-full border border-line bg-card p-0.5">
+      {OPTIONS.map(({ value, Icon }) => {
+        const label = t.theme[value];
+        return (
         <button
           key={value}
           type="button"
@@ -27,7 +31,8 @@ export function ThemeToggle() {
         >
           <Icon className="size-3.5" />
         </button>
-      ))}
+        );
+      })}
     </div>
   );
 }

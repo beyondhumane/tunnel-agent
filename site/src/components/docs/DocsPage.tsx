@@ -1,14 +1,17 @@
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, PencilLine } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Markdown, outline } from './Markdown';
-import { DOC_GROUPS, DOCS } from '@/lib/docs';
+import { docGroups, docsFor } from '@/lib/docs';
+import { useI18n } from '@/lib/i18n';
 import { docPath } from '@/lib/router';
 import { REPO_URL, url } from '@/lib/site';
 
 function Sidebar({ slug }: { slug: string }) {
+  const { lang, t } = useI18n();
+  const DOCS = docsFor(lang);
   return (
-    <nav aria-label="Documentation" className="space-y-6">
-      {DOC_GROUPS.map((g) => (
+    <nav aria-label={t.docs.nav} className="space-y-6">
+      {docGroups(DOCS).map((g) => (
         <div key={g}>
           <p className="px-3 text-xs font-semibold tracking-wider text-faint uppercase">{g}</p>
           <ul className="mt-2 space-y-0.5">
@@ -36,6 +39,8 @@ function Sidebar({ slug }: { slug: string }) {
 }
 
 export function DocsPage({ slug }: { slug: string }) {
+  const { lang, t } = useI18n();
+  const DOCS = docsFor(lang);
   const i = DOCS.findIndex((d) => d.slug === slug);
   const page = DOCS[i];
   const prev = DOCS[i - 1];
@@ -92,13 +97,13 @@ export function DocsPage({ slug }: { slug: string }) {
             )}
           </div>
 
-          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted">
+          <nav aria-label={t.docs.breadcrumb} className="flex items-center gap-1.5 text-xs text-muted">
             <a href={url('/')} className="hover:text-fg">
-              Home
+              {t.docs.home}
             </a>
             <ChevronRight className="size-3" />
             <a href={url(docPath())} className="hover:text-fg">
-              Docs
+              {t.docs.docs}
             </a>
             <ChevronRight className="size-3" />
             <span className="text-fg">{page.title}</span>
@@ -115,14 +120,14 @@ export function DocsPage({ slug }: { slug: string }) {
 
           <div className="mt-12 flex max-w-3xl flex-wrap items-center justify-between gap-3 border-t border-line pt-6 text-sm">
             <a href={`${REPO_URL}/edit/main/${page.path}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-muted hover:text-fg">
-              <PencilLine className="size-3.5" /> Edit this page on GitHub
+              <PencilLine className="size-3.5" /> {t.docs.edit}
             </a>
           </div>
           <div className="mt-6 grid max-w-3xl gap-3 sm:grid-cols-2">
             {prev ? (
               <a href={url(docPath(prev.slug))} className="group rounded-xl border border-line bg-card p-4 transition-colors hover:border-accent">
                 <span className="flex items-center gap-1 text-xs text-muted">
-                  <ArrowLeft className="size-3" /> Previous
+                  <ArrowLeft className="size-3" /> {t.docs.prev}
                 </span>
                 <span className="mt-1 block font-medium group-hover:text-accent">{prev.title}</span>
               </a>
@@ -132,7 +137,7 @@ export function DocsPage({ slug }: { slug: string }) {
             {next && (
               <a href={url(docPath(next.slug))} className="group rounded-xl border border-line bg-card p-4 text-right transition-colors hover:border-accent">
                 <span className="flex items-center justify-end gap-1 text-xs text-muted">
-                  Next <ArrowRight className="size-3" />
+                  {t.docs.next} <ArrowRight className="size-3" />
                 </span>
                 <span className="mt-1 block font-medium group-hover:text-accent">{next.title}</span>
               </a>
@@ -143,7 +148,7 @@ export function DocsPage({ slug }: { slug: string }) {
         <aside className="hidden xl:block">
           {toc.length > 0 && (
             <div className="sticky top-14 py-10">
-              <p className="text-xs font-semibold tracking-wider text-faint uppercase">On this page</p>
+              <p className="text-xs font-semibold tracking-wider text-faint uppercase">{t.docs.onThisPage}</p>
               <ul className="mt-3 space-y-1.5 border-l border-line">
                 {toc.map((h) => (
                   <li key={h.id}>

@@ -1,3 +1,5 @@
+import type { Lang } from '@/lib/i18n';
+
 export type DocPage = {
   slug: string;
   title: string;
@@ -10,8 +12,9 @@ export type DocPage = {
 };
 
 const FILES = import.meta.glob<string>('../../content/docs/*.md', { query: '?raw', import: 'default', eager: true });
+const FILES_ES = import.meta.glob<string>('../../content/docs/es/*.md', { query: '?raw', import: 'default', eager: true });
 
-function parse(file: string, raw: string): DocPage {
+function parse(file: string, raw: string, dir = ''): DocPage {
   const m = /^---\n([\s\S]*?)\n---\n/.exec(raw);
   const meta: Record<string, string> = {};
   for (const line of (m?.[1] ?? '').split('\n')) {
@@ -27,7 +30,7 @@ function parse(file: string, raw: string): DocPage {
     group: meta.group ?? '',
     order: Number(meta.order ?? 0),
     body: h1 ? rest.slice(h1[0].length) : rest,
-    path: `site/content/docs/${file.split('/').pop()}`,
+    path: `site/content/docs/${dir}${file.split('/').pop()}`,
   };
 }
 
@@ -37,8 +40,17 @@ export const DOCS: DocPage[] = Object.entries(FILES)
 
 export const DOC_GROUPS = [...new Set(DOCS.map((p) => p.group))];
 
+const ES = new Map(Object.entries(FILES_ES).map(([f, raw]) => [f.split('/').pop()!.replace(/\.md$/, ''), parse(f, raw, 'es/')]));
+/** Spanish pages share slugs and order with English; any missing translation falls back to English. */
+const DOCS_ES = DOCS.map((p) => ES.get(p.slug) ?? p);
+
+export const docsFor = (lang: Lang) => (lang === 'es' ? DOCS_ES : DOCS);
+export const docGroups = (docs: DocPage[]) => [...new Set(docs.map((p) => p.group))];
+
 export const headingSlug = (s: string) =>
   s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/<[^>]+>|`/g, '')
     .replace(/[^a-z0-9]+/g, '-')

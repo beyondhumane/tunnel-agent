@@ -44,7 +44,7 @@ dotnet test tests/TunnelAgent.Tests/TunnelAgent.Tests.csproj
 
 ## Working on this site
 
-The site is a Vite + React app prerendered to static HTML. Pages live in `site/content/docs/*.md`.
+The site is a Vite + React app prerendered to static HTML. Pages live in `site/content/docs/*.md`, with Spanish translations in `site/content/docs/es/*.md`.
 
 ```bash
 cd site
