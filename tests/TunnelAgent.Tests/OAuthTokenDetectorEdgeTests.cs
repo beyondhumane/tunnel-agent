@@ -163,4 +163,34 @@ public sealed class OAuthTokenDetectorEdgeTests
 
         Assert.Single(detector.GetAccounts());
     }
+
+    [Fact]
+    public void GetAccounts_HashedFilenameWithoutJsonFields_ExtractsEmailAndPlan()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(temp.File("codex-8017738c-name@domain.com-prolite.json"), new JsonObject
+        {
+            ["access_token"] = "token"
+        }.ToJsonString());
+        var detector = new OAuthTokenDetector(temp.Path);
+
+        var account = Assert.Single(detector.GetAccounts()["codex"]);
+
+        Assert.Equal("name@domain.com", account.Email);
+        Assert.Equal("Prolite", account.Plan);
+    }
+
+    [Fact]
+    public void GetTokenFiles_HashedFilename_MatchesEmail()
+    {
+        using var temp = new TestTempDirectory();
+        var file = temp.File("claude-f9c692a7-name@domain.com.json");
+        File.WriteAllText(file, new JsonObject { ["access_token"] = "token" }.ToJsonString());
+        File.WriteAllText(temp.File("claude-0a1b2c3d-other@domain.com.json"),
+            new JsonObject { ["access_token"] = "other" }.ToJsonString());
+
+        var files = OAuthTokenDetector.GetTokenFiles(temp.Path, "claude", "name@domain.com");
+
+        Assert.Equal([file], files);
+    }
 }

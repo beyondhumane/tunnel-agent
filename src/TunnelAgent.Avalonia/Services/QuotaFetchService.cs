@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
+using TunnelAgent.Infrastructure.Engine.CliProxy;
 using TunnelAgent.ViewModels;
 
 namespace TunnelAgent.Services;
@@ -498,7 +499,7 @@ public sealed class QuotaFetchService
         const string RefreshUrl = "https://platform.claude.com/v1/oauth/token";
 
         if (!Directory.Exists(_authDir)) return null;
-        foreach (var file in Directory.GetFiles(_authDir, $"claude-{email}*.json"))
+        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, "claude", email))
         {
             try
             {
@@ -788,7 +789,7 @@ public sealed class QuotaFetchService
         const string RefreshUrl = "https://auth.openai.com/oauth/token";
 
         if (!Directory.Exists(_authDir)) return null;
-        foreach (var file in Directory.GetFiles(_authDir, $"codex-{email}*.json"))
+        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, "codex", email))
         {
             try
             {
@@ -2150,18 +2151,17 @@ public sealed class QuotaFetchService
 
     // ── Token reader ─────────────────────────────────────────────────────────
 
-    private string? ReadAccessToken(string prefix, string email)
+    internal string? ReadAccessToken(string prefix, string email)
     {
         if (string.IsNullOrWhiteSpace(email)) return null;
-        if (!Directory.Exists(_authDir)) return null;
-        foreach (var file in Directory.GetFiles(_authDir, $"{prefix}-{email}*.json"))
+        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, prefix, email))
         {
             try
             {
                 var doc = JsonNode.Parse(File.ReadAllText(file))?.AsObject();
-                if (doc is null) continue;
-                return doc["access_token"]?.GetValue<string>()
-                    ?? doc["accessToken"]?.GetValue<string>();
+                var token = doc?["access_token"]?.GetValue<string>()
+                         ?? doc?["accessToken"]?.GetValue<string>();
+                if (token is not null) return token;
             }
             catch { }
         }
