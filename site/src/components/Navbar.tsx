@@ -37,7 +37,7 @@ export function Navbar() {
       }`}
     >
       <nav className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6">
-        <a href={url('/')} className="shrink-0 text-fg transition-transform duration-300 hover:scale-[1.03]" aria-label="Tunnel Agent home">
+        <a href={url('/')} className="flex shrink-0 items-center text-fg transition-transform duration-300 hover:scale-[1.03]" aria-label="Tunnel Agent home">
           <Wordmark />
         </a>
         <div className="hidden flex-1 items-center gap-1 md:flex">

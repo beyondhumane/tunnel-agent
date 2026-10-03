@@ -219,3 +219,80 @@ body {
 .prose blockquote p { margin: 0; }
 .prose img { border-radius: 12px; border: 1px solid var(--line); }
 .prose hr { border-color: var(--line); margin: 2rem 0; }
+
+/* ------------------------------------------------------------------ */
+/*  Surfaces                                                           */
+/* ------------------------------------------------------------------ */
+@property --angle { syntax: "<angle>"; initial-value: 200deg; inherits: false; }
+@keyframes spin-angle { from { --angle: 0deg; } to { --angle: 360deg; } }
+@keyframes drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33% { transform: translate3d(6vw, 4vh, 0) scale(1.15); }
+  66% { transform: translate3d(-5vw, -3vh, 0) scale(0.9); }
+}
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+/* Fixed page backdrop: drifting accent auroras, a dot grid and film grain. */
+.backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.backdrop .aurora { position: absolute; border-radius: 9999px; filter: blur(90px); animation: drift 28s ease-in-out infinite; }
+.backdrop .dots {
+  position: absolute; inset: 0;
+  background-image: radial-gradient(color-mix(in srgb, var(--fg) 14%, transparent) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000 20%, transparent 85%);
+  opacity: 0.55;
+}
+.dark .backdrop .dots { opacity: 0.35; }
+.backdrop .grain {
+  position: absolute; inset: -50%; opacity: 0.05; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.dark .backdrop .grain { opacity: 0.09; }
+
+/* Card with a gradient hairline border that spins on hover. */
+.card-x {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(color-mix(in srgb, var(--card) 88%, transparent), color-mix(in srgb, var(--card) 88%, transparent)) padding-box,
+    conic-gradient(from var(--angle), var(--line-strong), var(--line) 25%, var(--line-strong) 50%, color-mix(in srgb, var(--accent) 55%, var(--line-strong)) 75%, var(--line-strong)) border-box;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 1px 2px rgb(0 0 0 / 0.04), 0 18px 40px -28px color-mix(in srgb, var(--accent) 45%, transparent);
+  backdrop-filter: blur(6px);
+  transition: translate 0.3s, box-shadow 0.3s;
+}
+.card-x:hover {
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    conic-gradient(from var(--angle), transparent 0%, var(--accent) 12%, var(--accent-hover) 22%, transparent 34%, transparent 50%, color-mix(in srgb, var(--accent) 60%, transparent) 62%, transparent 74%) border-box,
+    linear-gradient(var(--line-strong), var(--line-strong)) border-box;
+  animation: spin-angle 3.5s linear infinite;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 24px 60px -24px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+
+/* Gradient icon tile with a soft glow, like the app's accent buttons. */
+.icon-tile {
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(145deg, var(--accent-hover), var(--accent) 55%, color-mix(in srgb, var(--accent) 70%, #000));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35), inset 0 -1px 0 rgb(0 0 0 / 0.15), 0 8px 20px -6px color-mix(in srgb, var(--accent) 65%, transparent);
+}
+
+/* Glow halo behind a framed element. */
+.halo { position: relative; isolation: isolate; }
+.halo::after {
+  content: ""; position: absolute; inset: 8% 6%; z-index: -1; border-radius: 9999px; filter: blur(60px);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 45%, transparent), transparent);
+  animation: pulse-dot 6s ease-in-out infinite;
+}
+
+/* Light sweep across primary buttons. */
+.sheen { position: relative; overflow: hidden; isolation: isolate; }
+.sheen::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; transform: translateX(-100%);
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.35) 50%, transparent 70%);
+}
+.sheen:hover::after { animation: sweep 0.9s ease; }
+
+.text-gradient {
+  background: linear-gradient(180deg, var(--fg) 30%, color-mix(in srgb, var(--fg) 55%, var(--muted)));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}

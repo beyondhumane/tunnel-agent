@@ -6,12 +6,21 @@ export function Section({ id, eyebrow, title, intro, children }: { id?: string; 
   return (
     <section id={id} className="mx-auto max-w-7xl scroll-mt-20 px-4 py-20 sm:px-6 sm:py-24">
       <Reveal className="max-w-2xl">
-        <p className="text-xs font-semibold tracking-[0.14em] text-accent uppercase">{eyebrow}</p>
-        <h2 className="mt-3 text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{title}</h2>
+        <Eyebrow>{eyebrow}</Eyebrow>
+        <h2 className="text-gradient mt-4 text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{title}</h2>
         {intro && <p className="mt-4 text-base leading-relaxed text-pretty text-muted sm:text-lg">{intro}</p>}
       </Reveal>
       <div className="mt-12">{children}</div>
     </section>
+  );
+}
+
+export function Eyebrow({ children }: { children: ReactNode }) {
+  return (
+    <p className="inline-flex items-center gap-2 rounded-full border border-accent/25 bg-accent-soft px-3 py-1 text-[11px] font-semibold tracking-[0.14em] text-accent uppercase">
+      <span className="size-1.5 rounded-full bg-accent shadow-[0_0_8px_var(--accent)]" />
+      {children}
+    </p>
   );
 }
 

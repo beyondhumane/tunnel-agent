@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { AppleIcon, GitHubIcon, LinuxIcon, WindowsIcon } from '../icons';
 import { AppMock } from './AppMock';
 import { AGENTS, IDES, PROVIDERS } from './brands';
-import { BrandIcon, Endpoint, Section } from './ui';
+import { BrandIcon, Endpoint, Eyebrow, Section } from './ui';
 import { Reveal, Tilt, spotlight, useInView, useReducedMotion } from '@/lib/motion';
 import { docPath } from '@/lib/router';
 import { DOWNLOADS, RELEASES_URL, REPO_URL, url, VERSION } from '@/lib/site';
@@ -19,7 +19,7 @@ import perplexityShot from '../../../../assets/providers-perplexity.png';
 import quotaShot from '../../../../assets/quota.png';
 
 const btnPrimary =
-  'group inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-lg hover:shadow-accent/30 active:translate-y-0';
+  'sheen group inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-lg hover:shadow-accent/30 active:translate-y-0';
 const btnSecondary =
   'group inline-flex items-center justify-center gap-2 rounded-lg border border-line-strong bg-btn px-4 py-2.5 text-sm font-medium text-fg transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:bg-btn-hover active:translate-y-0';
 
@@ -85,11 +85,22 @@ function Hero() {
           </p>
         </div>
         <div className="animate-rise relative [animation-delay:200ms] [animation-duration:1.1s]">
-          <div className="animate-float-y">
+          <div className="halo animate-float-y">
             <Tilt>
               <AppMock />
             </Tilt>
           </div>
+          <FloatChip className="-top-5 left-6 [animation-delay:-1s] sm:left-16">
+            <span className="size-1.5 rounded-full bg-ok shadow-[0_0_8px_var(--ok)]" />
+            <span className="font-mono">POST /v1/messages</span>
+            <span className="rounded bg-ok/15 px-1 font-mono text-ok">200</span>
+          </FloatChip>
+          <FloatChip className="right-4 bottom-12 [animation-delay:-3s] sm:-right-4">
+            <GitBranch className="size-3.5 text-accent" />
+            <span>
+              Fallback <span className="font-mono text-fg">claude → gpt-5</span>
+            </span>
+          </FloatChip>
           <p className="mt-3 text-center text-xs text-faint">Interactive preview — click the sidebar. It follows the site theme, just like the app.</p>
         </div>
       </div>
@@ -101,15 +112,18 @@ const STRIP = [...PROVIDERS.filter((p) => p.icon), ...IDES];
 
 function Strip() {
   return (
-    <div className="border-y border-line bg-side">
+    <div className="border-y border-line bg-side/60 backdrop-blur-sm">
       <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-6 sm:px-6">
         <span className="shrink-0 text-xs font-medium tracking-wide text-faint uppercase">Works with</span>
         <div className="marquee-mask group min-w-0 flex-1 overflow-hidden">
           <div className="animate-marquee flex w-max group-hover:[animation-play-state:paused]">
             {[0, 1].map((copy) => (
-              <ul key={copy} className="flex shrink-0 items-center gap-10 pr-10" aria-hidden={copy === 1 || undefined}>
+              <ul key={copy} className="flex shrink-0 items-center gap-3 pr-3" aria-hidden={copy === 1 || undefined}>
                 {STRIP.map((p) => (
-                  <li key={p.name} className="flex items-center gap-2 text-sm whitespace-nowrap text-muted transition-colors hover:text-fg">
+                  <li
+                    key={p.name}
+                    className="flex items-center gap-2 rounded-full border border-line bg-card/80 py-1.5 pr-3.5 pl-2 text-sm whitespace-nowrap text-muted shadow-sm transition-colors hover:border-accent/40 hover:text-fg"
+                  >
                     <BrandIcon brand={p} className="size-5" />
                     {p.name}
                   </li>
@@ -143,13 +157,20 @@ function Features() {
       title="Everything between your subscriptions and your agents."
       intro="Proxies like CLIProxyAPI are powerful but live in config files and terminals. Tunnel Agent gives them a native window."
     >
-      <div onPointerMove={spotlight} className="grid gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
+      <div onPointerMove={spotlight} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map(({ Icon, title, text }, i) => (
-          <Reveal key={title} delay={(i % 3) * 90} className="spot group bg-card p-6">
-            <span className="grid size-9 place-items-center rounded-lg bg-accent-soft text-accent transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6">
-              <Icon className="size-4.5" />
-            </span>
-            <h3 className="mt-4 font-semibold">{title}</h3>
+          <Reveal key={title} delay={(i % 3) * 90} className="card-x spot group overflow-hidden rounded-2xl p-6 hover:-translate-y-1">
+            <Icon
+              className="pointer-events-none absolute -right-6 -bottom-6 size-32 text-accent opacity-[0.05] transition-all duration-500 group-hover:-rotate-12 group-hover:opacity-[0.12]"
+              aria-hidden="true"
+            />
+            <div className="flex items-center justify-between">
+              <span className="icon-tile size-10 rounded-xl transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6">
+                <Icon className="size-5" />
+              </span>
+              <span className="font-mono text-xs text-faint">{String(i + 1).padStart(2, '0')}</span>
+            </div>
+            <h3 className="mt-5 font-semibold">{title}</h3>
             <p className="mt-1.5 text-sm leading-relaxed text-muted">{text}</p>
           </Reveal>
         ))}
@@ -195,19 +216,21 @@ function Engines() {
           <Reveal
             key={e.name}
             delay={i * 110}
-            className="spot flex flex-col rounded-2xl border border-line bg-card p-6 transition-[translate,border-color,box-shadow] duration-300 hover:-translate-y-1 hover:border-accent/40 hover:shadow-xl hover:shadow-accent/10"
+            className="card-x spot flex flex-col overflow-hidden rounded-2xl p-6 hover:-translate-y-1"
           >
+            <span className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-accent to-transparent" aria-hidden="true" />
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-xs font-medium text-ok">
                 <Pulse /> Running
               </span>
               <Endpoint>127.0.0.1:{e.port}</Endpoint>
             </div>
-            <h3 className="mt-5 text-lg font-semibold">{e.name}</h3>
+            <Spark seed={i} />
+            <h3 className="mt-4 text-lg font-semibold">{e.name}</h3>
             <p className="mt-2 flex-1 text-sm leading-relaxed text-muted">{e.text}</p>
             <div className="mt-5 flex flex-wrap gap-1.5">
               {e.tags.map((t) => (
-                <span key={t} className="rounded-full border border-line px-2 py-0.5 text-xs text-muted">
+                <span key={t} className="rounded-full border border-line bg-side px-2 py-0.5 text-xs text-muted">
                   {t}
                 </span>
               ))}
@@ -236,19 +259,19 @@ const STEPS = [
 
 function HowItWorks() {
   return (
-    <section className="border-y border-line bg-side">
+    <section className="border-y border-line bg-side/60 backdrop-blur-sm">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24">
         <div className="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:items-center">
           <div>
             <Reveal>
-              <p className="text-xs font-semibold tracking-[0.14em] text-accent uppercase">How it works</p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">From download to first prompt in minutes.</h2>
+              <Eyebrow>How it works</Eyebrow>
+              <h2 className="text-gradient mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">From download to first prompt in minutes.</h2>
             </Reveal>
             <ol className="relative mt-10 space-y-6">
-              <span className="absolute top-2 bottom-2 left-[11px] w-px bg-line" aria-hidden="true" />
+              <span className="absolute top-2 bottom-2 left-[13px] w-px bg-gradient-to-b from-accent via-accent/40 to-transparent" aria-hidden="true" />
               {STEPS.map((s, i) => (
                 <Reveal as="li" key={s.n} delay={i * 140} className="group relative flex gap-4">
-                  <span className="relative grid size-6 shrink-0 place-items-center rounded-full border border-accent/40 bg-side font-mono text-[10px] text-accent transition-colors duration-300 group-hover:bg-accent group-hover:text-white">
+                  <span className="icon-tile relative size-7 shrink-0 rounded-full font-mono text-[11px] transition-transform duration-300 group-hover:scale-110">
                     {i + 1}
                   </span>
                   <div>
@@ -259,7 +282,8 @@ function HowItWorks() {
               ))}
             </ol>
           </div>
-          <Reveal delay={150} className="overflow-hidden rounded-2xl border border-line bg-card shadow-xl shadow-accent/5">
+          <Reveal delay={150} className="halo">
+            <div className="card-x overflow-hidden rounded-2xl">
             <div className="flex items-center gap-2 border-b border-line px-4 py-2.5 text-xs text-muted">
               <span className="size-2 rounded-full bg-err/70" /> <span className="size-2 rounded-full bg-warn/70" /> <span className="size-2 rounded-full bg-ok/70" />
               <span className="ml-2 font-mono">any OpenAI-compatible client</span>
@@ -287,6 +311,7 @@ function HowItWorks() {
                 </Line>
               </code>
             </pre>
+            </div>
           </Reveal>
         </div>
       </div>
@@ -307,9 +332,9 @@ function Agents() {
           <Reveal
             key={a.name}
             delay={(i % 4) * 80}
-            className="spot group flex items-center gap-3 rounded-2xl border border-line bg-card p-4 transition-[translate,border-color] duration-300 hover:-translate-y-0.5 hover:border-accent/40"
+            className="card-x spot group flex items-center gap-3 rounded-2xl p-4 hover:-translate-y-0.5"
           >
-            <span className="transition-transform duration-300 group-hover:scale-110 group-hover:rotate-[-4deg]">
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl border border-line bg-side transition-transform duration-300 group-hover:scale-110 group-hover:rotate-[-4deg]">
               <BrandIcon brand={a} className="size-8" />
             </span>
             <div className="min-w-0">
@@ -395,8 +420,9 @@ function Tour() {
         ref={ref}
         onPointerEnter={() => setPaused(true)}
         onPointerLeave={() => setPaused(false)}
-        className="relative mt-6 flex justify-center overflow-hidden rounded-2xl border border-line bg-side p-3 sm:p-8"
+        className="card-x relative mt-6 flex justify-center overflow-hidden rounded-2xl p-3 sm:p-8"
       >
+        <div className="bg-grid animate-grid-pan pointer-events-none absolute inset-0 opacity-60" aria-hidden="true" />
         <div className="pointer-events-none absolute -bottom-32 left-1/2 h-64 w-[70%] -translate-x-1/2 rounded-full bg-accent/15 blur-3xl" aria-hidden="true" />
         <img
           key={shot.id}
@@ -419,11 +445,11 @@ const OS = [
 
 function Downloads() {
   return (
-    <section id="download" className="scroll-mt-20 border-t border-line bg-side">
+    <section id="download" className="scroll-mt-20 border-t border-line bg-side/60 backdrop-blur-sm">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24">
         <Reveal className="max-w-2xl">
-          <p className="text-xs font-semibold tracking-[0.14em] text-accent uppercase">Download</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Get Tunnel Agent {VERSION}</h2>
+          <Eyebrow>Download</Eyebrow>
+          <h2 className="text-gradient mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">Get Tunnel Agent {VERSION}</h2>
           <p className="mt-4 text-lg text-muted">Free and open source. Pick your platform — every build is published on GitHub Releases.</p>
         </Reveal>
         <div onPointerMove={spotlight} className="mt-12 grid gap-4 lg:grid-cols-3">
@@ -431,10 +457,10 @@ function Downloads() {
             <Reveal
               key={id}
               delay={n * 110}
-              className="spot group/os rounded-2xl border border-line bg-card p-6 transition-[translate,border-color,box-shadow] duration-300 hover:-translate-y-1 hover:border-accent/40 hover:shadow-xl hover:shadow-accent/10"
+              className="card-x spot group/os rounded-2xl p-6 hover:-translate-y-1"
             >
               <div className="flex items-center gap-3">
-                <span className="grid size-10 place-items-center rounded-xl bg-accent-soft text-accent transition-transform duration-300 group-hover/os:scale-110">
+                <span className="icon-tile size-11 rounded-xl transition-transform duration-300 group-hover/os:scale-110 group-hover/os:-rotate-6">
                   <Icon className="size-5" />
                 </span>
                 <div>
@@ -448,7 +474,7 @@ function Downloads() {
                     <a
                       href={d.href}
                       className={`group flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-all duration-200 hover:translate-x-0.5 ${
-                        i === 0 ? 'bg-accent text-white hover:bg-accent-hover hover:shadow-md hover:shadow-accent/30' : 'border border-line hover:border-accent/40 hover:bg-btn-hover'
+                        i === 0 ? 'sheen bg-accent text-white hover:bg-accent-hover hover:shadow-md hover:shadow-accent/30' : 'border border-line hover:border-accent/40 hover:bg-btn-hover'
                       }`}
                     >
                       <span className="font-medium">{d.label}</span>
@@ -500,6 +526,37 @@ function Cta() {
         </div>
       </Reveal>
     </section>
+  );
+}
+
+function FloatChip({ className = '', children }: { className?: string; children: React.ReactNode }) {
+  return (
+    <div
+      className={`absolute z-10 hidden items-center gap-2 rounded-full border border-line-strong bg-card/90 px-3 py-1.5 text-xs text-muted shadow-lg shadow-accent/10 backdrop-blur-md [animation:bob_5s_ease-in-out_infinite] sm:flex ${className}`}
+      aria-hidden="true"
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Tiny animated traffic sparkline for engine cards. */
+function Spark({ seed }: { seed: number }) {
+  const pts = Array.from({ length: 24 }, (_, i) => {
+    const y = 18 - (Math.sin(i * 0.7 + seed * 1.9) * 6 + Math.sin(i * 1.7 + seed) * 3 + i * 0.25);
+    return `${(i / 23) * 200},${y.toFixed(1)}`;
+  }).join(' ');
+  return (
+    <svg viewBox="0 0 200 32" className="mt-5 h-8 w-full overflow-visible" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <linearGradient id={`spark${seed}`} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor="var(--accent)" stopOpacity="0.3" />
+          <stop offset="1" stopColor="var(--accent)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={`0,32 ${pts} 200,32`} fill={`url(#spark${seed})`} />
+      <polyline points={pts} fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeDasharray="4 3" className="animate-flow" vectorEffect="non-scaling-stroke" />
+    </svg>
   );
 }
 
