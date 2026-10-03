@@ -15,7 +15,7 @@ function Page() {
   }, [title]);
   const view = route.view === 'docs' ? <DocsPage slug={route.slug} /> : route.view === 'missing' ? <NotFound /> : <Landing />;
   return (
-    <div key={route.view === 'docs' ? `docs/${route.slug}` : route.view} className="animate-view">
+    <div key={route.view === 'docs' ? `docs/${route.slug}` : route.view} className={route.view === 'docs' ? undefined : 'animate-view'}>
       {view}
     </div>
   );
