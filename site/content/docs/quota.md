@@ -23,13 +23,15 @@ Each account lists its windows, for example **Primary (5h)** and **Weekly**, wit
 
 Use the refresh button on an account, or **Refresh all**, to fetch fresh values.
 
+Refreshes happen on supported app events (such as startup, the first Quota visit or connecting an account) and manual requests, not continuous polling. Quota windows and metrics differ by provider; not every account has a five-hour and weekly window.
+
 ## When something goes wrong
 
 | Message | What to do |
 | --- | --- |
 | Authentication expired | Sign in to the provider again, then refresh. |
 | Local authentication data was not found | Open the IDE, sign in, then refresh. |
-| Quota API is rate limited | Tunnel Agent shows the last values and retries automatically after a few minutes. |
+| Quota API is rate limited | Last known values may remain visible. Wait for the cooldown, then refresh again. |
 | No quota data available | The account has no active plan or the provider returned no usage. |
 
 > [!TIP]

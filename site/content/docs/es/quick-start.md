@@ -16,11 +16,11 @@ Ya está: usa tu agente como siempre y sus peticiones pasarán por el endpoint l
 
 ## Con cualquier otro cliente
 
-Funciona cualquier cosa que hable la API de OpenAI. Copia el endpoint de la cabecera de Proveedores y una clave API de **Configuración → CLIProxyAPI → Claves API**:
+Usa un cliente que admita los endpoints compatibles con OpenAI y los modelos del motor elegido. Copia el endpoint de la cabecera de Proveedores y una clave local de cliente de **Configuración → CLIProxyAPI → Claves API**:
 
 ```bash
 export OPENAI_BASE_URL=http://127.0.0.1:8317/v1
-export OPENAI_API_KEY=<una clave de Configuración>
+export OPENAI_API_KEY='tu-clave-local-de-cliente'
 
 curl "$OPENAI_BASE_URL/models" -H "Authorization: Bearer $OPENAI_API_KEY"
 ```

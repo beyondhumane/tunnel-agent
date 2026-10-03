@@ -9,7 +9,7 @@ const site = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const root = path.resolve(site, "..");
 const dist = path.join(site, "dist");
 const server = await import(pathToFileURL(path.join(site, "dist-ssr", "entry-server.js")).href);
-const { DOCS, SEO, REPO_URL, RELEASES_URL, VERSION, docPath, url, abs } = server;
+const { docsFor, dict, LANGS, REPO_URL, RELEASES_URL, VERSION, docPath, localizedPath, url, abs } = server;
 
 const write = (rel, body) => {
   const file = path.join(dist, rel);
@@ -23,10 +23,11 @@ for (const marker of ["<!--app-head-->", '<div id="root"><!--app-html--></div>']
 }
 
 function page(route, out) {
-  const { html, head } = server.render(route);
+  const { html, head, lang } = server.render(route);
   write(
     out,
     template
+      .replace('<html lang="en">', `<html lang="${lang}">`)
       .replace("<!--app-head-->", head)
       .replace('<div id="root"><!--app-html--></div>', `<div id="root" data-path="${url(route)}">${html}</div>`),
   );
@@ -44,8 +45,10 @@ const lastmod = (rel) => {
   }
 };
 const entries = [
-  { loc: abs("/"), mod: lastmod("site") },
-  ...DOCS.map((p) => ({ loc: abs(docPath(p.slug)), mod: lastmod(p.path) })),
+  ...LANGS.flatMap((lang) => [
+    { loc: abs(localizedPath("/", lang)), mod: lastmod(`site/src/i18n/${lang}.ts`) },
+    ...docsFor(lang).map((p) => ({ loc: abs(localizedPath(docPath(p.slug), lang)), mod: lastmod(p.path) })),
+  ]),
 ];
 write(
   "sitemap.xml",
@@ -57,34 +60,53 @@ ${entries.map((e) => `  <url><loc>${e.loc}</loc>${e.mod ? `<lastmod>${e.mod}</la
 );
 write("robots.txt", `User-agent: *\nAllow: /\n\nSitemap: ${abs("/sitemap.xml")}\n`);
 
-const source = (p) => `# ${p.title}\n\n> ${p.description}\n\n${p.body.trim()}\n`;
-for (const p of DOCS) write(docPath(p.slug).replace(/^\//, "").replace(/\/$/, ".md"), source(p));
+const source = (p, lang) => `# ${p.title}\n\n> ${p.description}\n\n${p.body.trim().replace(/\]\(([a-z0-9-]+)\.md(#[a-z0-9-]+)?\)/g, (_, slug, hash = '') => `](${abs(localizedPath(docPath(slug).replace(/\/$/, '.md'), lang))}${hash})`)}\n`;
 
-const groups = [...new Set(DOCS.map((p) => p.group))];
-write(
-  "llms.txt",
-  `# Tunnel Agent
+for (const lang of LANGS) {
+  const DOCS = docsFor(lang);
+  const t = dict(lang);
+  const local = (p) => localizedPath(p, lang);
+  const output = (p) => local(`/${p}`).replace(/^\//, '');
+  const facts = `# Tunnel Agent\n\n> ${t.seo.description}\n\n${t.faq.items.map((item) => `## ${item.question}\n\n${item.answer}\n\n${t.faq.more}: ${abs(local(docPath(item.doc)))}`).join('\n\n')}\n`;
+  for (const p of DOCS) write(local(docPath(p.slug)).replace(/^\//, "").replace(/\/$/, ".md"), source(p, lang));
 
-> ${SEO.description}
+  const groups = [...new Set(DOCS.map((p) => p.group))];
+  write(
+    output("llms.txt"),
+    `# Tunnel Agent
 
-Tunnel Agent ${VERSION} is free and open source under the MIT license. Builds for Windows, macOS and Linux are on GitHub Releases.
+> ${t.seo.description}
+
+${lang === "es" ? `Tunnel Agent ${VERSION} es gratuito y de código abierto con licencia MIT. Hay versiones para Windows, macOS y Linux en GitHub Releases.` : `Tunnel Agent ${VERSION} is free and open source under the MIT license. Builds for Windows, macOS and Linux are on GitHub Releases.`}
+
+${t.faq.items[1].answer}\n\n${t.faq.items[4].answer}\n\n${t.download.note}
+
+## ${lang === "es" ? "Información del producto" : "Product overview"}
+
+- [${lang === "es" ? "Página principal" : "Landing page"}](${abs(local('/'))})
+- [${t.faq.eyebrow}](${abs(local('/overview.md'))})
+- [${lang === "es" ? "Documentación completa" : "Full documentation"}](${abs(local('/llms-full.txt'))})
 
 ${groups
-  .map(
-    (g) =>
-      `## ${g}\n\n${DOCS.filter((p) => p.group === g)
-        .map((p) => `- [${p.title}](${abs(docPath(p.slug).replace(/\/$/, ".md"))}): ${p.description}`)
-        .join("\n")}`,
-  )
-  .join("\n\n")}
+    .map(
+      (g) =>
+        `## ${g}\n\n${DOCS.filter((p) => p.group === g)
+          .map((p) => `- [${p.title}](${abs(local(docPath(p.slug).replace(/\/$/, ".md")))}): ${p.description}`)
+          .join("\n")}`,
+    )
+    .join("\n\n")}
 
-## Optional
+## ${lang === "es" ? "Opcional" : "Optional"}
 
-- [Source code](${REPO_URL})
+- [${lang === "es" ? "Código fuente" : "Source code"}](${REPO_URL})
 - [Releases](${RELEASES_URL})
+- [English](${abs('/llms.txt')})
+- [Español](${abs('/es/llms.txt')})
 `,
-);
-write("llms-full.txt", `# Tunnel Agent documentation\n\n${DOCS.map(source).join("\n---\n\n")}`);
+  );
+  write(output("overview.md"), facts);
+  write(output("llms-full.txt"), `${facts}\n---\n\n${DOCS.map((p) => source(p, lang)).join("\n---\n\n")}`);
+}
 
 fs.rmSync(path.join(site, "dist-ssr"), { recursive: true, force: true });
 console.log(`prerendered ${routes.length + 1} pages, sitemap with ${entries.length} URLs`);

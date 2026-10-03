@@ -9,7 +9,7 @@ Every release is published on [GitHub Releases](https://github.com/beyondhumane/
 
 ## Windows
 
-**Installer (recommended).** Download `TunnelAgent-win-x64-Setup.exe` (or `win-arm64`) and run it. Installer builds update themselves in the background.
+**Installer (recommended).** Download `TunnelAgent-win-x64-Setup.exe` (or `win-arm64`) and run it. Supported packaged builds can check for updates and prompt you to install them.
 
 **Portable.** Download `TunnelAgent-win-x64-Portable.zip`, extract it anywhere and run `TunnelAgent.exe`. Nothing is installed.
 
@@ -48,6 +48,6 @@ chmod +x TunnelAgent-*-linux-x64.AppImage
 
 ## First launch
 
-On first launch Tunnel Agent downloads the engine binaries from their GitHub releases and verifies them with SHA256 before installing. You can pick another engine version, or turn off automatic updates, in [Configuration](configuration.md).
+Tunnel Agent manages engine installation: CLIProxyAPI and Perplexity are downloaded from GitHub releases; 9Router is installed from the npm registry and needs Node.js. You can pick another engine version or control engine updates in [Configuration](configuration.md).
 
 Next: [Quick start](quick-start.md).

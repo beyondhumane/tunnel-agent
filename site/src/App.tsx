@@ -4,17 +4,39 @@ import { DocsPage } from './components/docs/DocsPage';
 import { Landing } from './components/landing/Landing';
 import { NotFound } from './components/NotFound';
 import { useEffect } from 'react';
-import { RouterProvider, useRoute } from './lib/router';
-import { pageMeta } from './lib/seo';
-import { I18nProvider, useI18n, type Lang } from './lib/i18n';
+import { langFromPath, RouterProvider, useRoute } from './lib/router';
+import { pageData } from './lib/seo';
+import { I18nProvider, useI18n } from './lib/i18n';
 
 function Page() {
   const route = useRoute();
   const { lang } = useI18n();
-  const { title } = pageMeta(route, lang);
   useEffect(() => {
-    document.title = title;
-  }, [title]);
+    const data = pageData(route, lang);
+    document.title = data.title;
+    document.head.querySelectorAll('[data-page-seo]').forEach((el) => el.remove());
+    for (const attrs of data.meta) {
+      const el = document.createElement('meta');
+      Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
+      el.setAttribute('data-page-seo', '');
+      document.head.append(el);
+    }
+    if (route.view !== 'missing') {
+      for (const attrs of [{ rel: 'canonical', href: data.canonical }, ...data.alternates.map((a) => ({ rel: 'alternate', hreflang: a.lang, href: a.href }))]) {
+        const el = document.createElement('link');
+        Object.entries(attrs).forEach(([key, value]) => el.setAttribute(key, value));
+        el.setAttribute('data-page-seo', '');
+        document.head.append(el);
+      }
+    }
+    if (data.ld) {
+      const el = document.createElement('script');
+      el.type = 'application/ld+json';
+      el.textContent = JSON.stringify(data.ld);
+      el.setAttribute('data-page-seo', '');
+      document.head.append(el);
+    }
+  }, [route, lang]);
   const view = route.view === 'docs' ? <DocsPage slug={route.slug} /> : route.view === 'missing' ? <NotFound /> : <Landing />;
   return (
     <div key={route.view === 'docs' ? `docs/${route.slug}` : route.view} className={route.view === 'docs' ? undefined : 'animate-view'}>
@@ -35,9 +57,9 @@ function Backdrop() {
   );
 }
 
-export function Site({ path, lang = 'en' }: { path: string; lang?: Lang }) {
+export function Site({ path }: { path: string }) {
   return (
-    <I18nProvider lang={lang}>
+    <I18nProvider lang={langFromPath(path)}>
     <RouterProvider path={path}>
       <div className="relative flex min-h-dvh flex-col">
         <Backdrop />

@@ -1,9 +1,13 @@
 import { Check, ChevronDown, Languages } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { LANGS, useI18n } from '@/lib/i18n';
+import { routePath, useHash, useRoute } from '@/lib/router';
+import { url } from '@/lib/site';
 
 export function LangToggle() {
-  const { lang, setLang, t } = useI18n();
+  const { lang, t } = useI18n();
+  const route = useRoute();
+  const hash = useHash();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -27,7 +31,6 @@ export function LangToggle() {
     <div ref={ref} className="relative">
       <button
         type="button"
-        aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={`${t.lang.label}: ${t.lang[lang]}`}
         title={t.lang.label}
@@ -38,35 +41,32 @@ export function LangToggle() {
         <span className="font-mono uppercase">{lang}</span>
         <ChevronDown className={`size-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
-      {open && (
-        <ul
-          role="listbox"
-          aria-label={t.lang.label}
-          className="animate-rise absolute right-0 z-50 mt-2 min-w-36 rounded-xl border border-line bg-card p-1 shadow-xl shadow-black/10"
-        >
-          {LANGS.map((l) => (
-            <li key={l}>
-              <button
-                type="button"
-                role="option"
-                aria-selected={lang === l}
-                lang={l}
-                onClick={() => {
-                  setLang(l);
-                  setOpen(false);
-                }}
-                className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
-                  lang === l ? 'bg-accent-soft text-accent' : 'text-fg hover:bg-side'
-                }`}
-              >
-                <span className="w-5 font-mono text-[11px] font-semibold uppercase text-muted">{l}</span>
-                <span className="flex-1">{t.lang[l]}</span>
-                {lang === l && <Check className="size-3.5" />}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul
+        hidden={!open}
+        aria-label={t.lang.label}
+        className="animate-rise absolute right-0 z-50 mt-2 min-w-36 rounded-xl border border-line bg-card p-1 shadow-xl shadow-black/10"
+      >
+        {LANGS.map((l) => (
+          <li key={l}>
+            <a
+              href={`${url(routePath(route, l))}${route.view === 'home' || l === lang ? hash : ''}`}
+              hrefLang={l}
+              aria-current={lang === l ? 'true' : undefined}
+              lang={l}
+              onClick={() => {
+                setOpen(false);
+              }}
+              className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
+                lang === l ? 'bg-accent-soft text-accent' : 'text-fg hover:bg-side'
+              }`}
+            >
+              <span className="w-5 font-mono text-[11px] font-semibold uppercase text-muted">{l}</span>
+              <span className="flex-1">{t.lang[l]}</span>
+              {lang === l && <Check className="size-3.5" />}
+            </a>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -12,7 +12,7 @@ The **Agents** screen detects which coding agents are installed and configures t
 | Agent | Config file written |
 | --- | --- |
 | Claude Code | `~/.claude/settings.json` |
-| Codex CLI | `~/.codex/config.toml` |
+| Codex CLI | `~/.codex/config.toml` and `~/.codex/auth.json` |
 | OpenCode | `~/.config/opencode/opencode.json` |
 | Pi | `~/.pi/agent/models.json` |
 | Oh My Pi (OMP) | `~/.omp/agent/models.yml` |
@@ -32,7 +32,7 @@ The agent then shows a **Configured** badge. Use **Reset configuration** to undo
 
 ## Other clients
 
-Any tool that accepts an OpenAI-compatible base URL works. Use the endpoint of the engine you want and a key from **Configuration**:
+Use a client that supports the selected engine's OpenAI-compatible endpoints and models. Use that engine's endpoint and a local client key from **Configuration**:
 
 | Engine | Base URL |
 | --- | --- |

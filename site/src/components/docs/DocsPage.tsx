@@ -4,10 +4,10 @@ import { Markdown, outline } from './Markdown';
 import { docGroups, docsFor } from '@/lib/docs';
 import { useI18n } from '@/lib/i18n';
 import { docPath } from '@/lib/router';
-import { REPO_URL, url } from '@/lib/site';
+import { REPO_URL } from '@/lib/site';
 
 function Sidebar({ slug }: { slug: string }) {
-  const { lang, t } = useI18n();
+  const { lang, t, url } = useI18n();
   const DOCS = docsFor(lang);
   return (
     <nav aria-label={t.docs.nav} className="space-y-6">
@@ -39,7 +39,7 @@ function Sidebar({ slug }: { slug: string }) {
 }
 
 export function DocsPage({ slug }: { slug: string }) {
-  const { lang, t } = useI18n();
+  const { lang, t, url } = useI18n();
   const DOCS = docsFor(lang);
   const i = DOCS.findIndex((d) => d.slug === slug);
   const page = DOCS[i];

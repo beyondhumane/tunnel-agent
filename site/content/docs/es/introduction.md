@@ -5,7 +5,7 @@ order: 1
 ---
 # Introducción
 
-Tunnel Agent es una app de escritorio gratuita y de código abierto que gestiona por ti motores de proxy de IA locales. Inicias sesión en los proveedores que ya usas, arrancas un motor con un clic y apuntas cualquier agente de programación al endpoint local que expone.
+Tunnel Agent es una app de escritorio gratuita y de código abierto que gestiona por ti motores de proxy de IA locales. Conecta cuentas compatibles, arranca un motor con un clic y apunta un agente de programación compatible al endpoint local.
 
 Es una app nativa hecha con .NET y Avalonia, así que se ve y se comporta igual en Windows, macOS y Linux, en modo claro u oscuro y en 14 idiomas.
 
@@ -26,9 +26,11 @@ Tunnel Agent no hace de proxy del tráfico de los modelos. Descarga, configura, 
 | --- | --- | --- |
 | [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) | `http://127.0.0.1:8317/v1` | Proxy unificado para proveedores OAuth y compatibles con OpenAI. |
 | [Perplexity WebUI Scraper](https://github.com/Villoh/perplexity-webui-scraper) | `http://127.0.0.1:8327/v1` | API compatible con OpenAI basada en sesiones de Perplexity WebUI. |
-| [9Router](https://github.com/decolua/9router) | `http://127.0.0.1:20128/v1` | Router compatible con OpenAI para más de 40 proveedores con fallback automático. |
+| [9Router](https://github.com/decolua/9router) | `http://127.0.0.1:20128/v1` | Router multiproveedor compatible con OpenAI con combos de modelos con fallback, round robin y Fusion. |
 
 Todos los motores escuchan solo en localhost. Puedes ejecutar cualquier combinación a la vez.
+
+Tunnel Agent no incluye acceso de pago a modelos. Necesitas una suscripción válida, una clave API, una sesión o una conexión gratuita compatible. Los costes, cuotas y condiciones del proveedor siguen vigentes.
 
 ## Qué puedes hacer
 

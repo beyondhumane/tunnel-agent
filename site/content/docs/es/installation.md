@@ -9,7 +9,7 @@ Cada versión se publica en [GitHub Releases](https://github.com/beyondhumane/tu
 
 ## Windows
 
-**Instalador (recomendado).** Descarga `TunnelAgent-win-x64-Setup.exe` (o `win-arm64`) y ejecútalo. Las versiones con instalador se actualizan solas en segundo plano.
+**Instalador (recomendado).** Descarga `TunnelAgent-win-x64-Setup.exe` (o `win-arm64`) y ejecútalo. Las versiones empaquetadas compatibles pueden buscar actualizaciones y pedirte que las instales.
 
 **Portable.** Descarga `TunnelAgent-win-x64-Portable.zip`, extráelo donde quieras y ejecuta `TunnelAgent.exe`. No se instala nada.
 
@@ -48,6 +48,6 @@ chmod +x TunnelAgent-*-linux-x64.AppImage
 
 ## Primer arranque
 
-En el primer arranque, Tunnel Agent descarga los binarios de los motores desde sus releases de GitHub y los verifica con SHA256 antes de instalarlos. Puedes elegir otra versión del motor, o desactivar las actualizaciones automáticas, en [Configuración](configuration.md).
+Tunnel Agent gestiona la instalación de los motores: CLIProxyAPI y Perplexity se descargan de releases de GitHub; 9Router se instala desde npm y necesita Node.js. Puedes elegir otra versión del motor o controlar sus actualizaciones en [Configuración](configuration.md).
 
 Siguiente: [Inicio rápido](quick-start.md).
