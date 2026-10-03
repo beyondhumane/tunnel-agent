@@ -15,13 +15,45 @@ namespace TunnelAgent.Infrastructure.Engine.Perplexity;
 public sealed class AccountService
 {
     private readonly string _dir;
+    private readonly string _backupRoot;
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
-    public AccountService() : this(IPlatformInfo.Current.PerplexityAccountsDirectory) { }
+    /// <summary>Folder inside each backup snapshot that holds Perplexity account files.</summary>
+    public const string BackupSubdirectory = "perplexity";
 
-    public AccountService(string directory) => _dir = directory;
+    public AccountService() : this(IPlatformInfo.Current.PerplexityAccountsDirectory, CredentialBackups.DefaultRoot) { }
 
-    private void EnsureDir() => Directory.CreateDirectory(_dir);
+    public AccountService(string directory, string backupRoot)
+    {
+        _dir = directory;
+        _backupRoot = backupRoot;
+        PruneBackups(DateTime.UtcNow);
+    }
+
+    // Backups used to be written to {_dir}/.backup without permissions or retention;
+    // drop those along with the shared ones once they pass the retention window.
+    private void PruneBackups(DateTime nowUtc)
+    {
+        try
+        {
+            CredentialBackups.Prune(_backupRoot, nowUtc);
+            var legacy = Path.Combine(_dir, ".backup");
+            if (Directory.Exists(legacy))
+                CredentialBackups.CreateOwnerOnlyDirectory(legacy);
+            CredentialBackups.Prune(legacy, nowUtc);
+            if (Directory.Exists(legacy) && !Directory.EnumerateFileSystemEntries(legacy).Any())
+                Directory.Delete(legacy);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[AccountService] Failed to prune Perplexity backups: {ex.Message}");
+        }
+    }
+
+    private void BackupAndDelete(string file) =>
+        CredentialBackups.BackupAndDelete(file, _backupRoot, BackupSubdirectory);
+
+    private void EnsureDir() => CredentialBackups.CreateOwnerOnlyDirectory(_dir);
 
     private string FilePath(string id) => Path.Combine(_dir, $"{id}.json");
 
@@ -88,13 +120,7 @@ public sealed class AccountService
         catch { }
 
         // Backup then delete
-        try
-        {
-            var backupDir = Path.Combine(_dir, ".backup", DateTime.UtcNow.ToString("yyyyMMddHHmmss"));
-            Directory.CreateDirectory(backupDir);
-            File.Copy(path, Path.Combine(backupDir, Path.GetFileName(path)), overwrite: true);
-            File.Delete(path);
-        }
+        try { BackupAndDelete(path); }
         catch { return false; }
 
         // If it was default, promote the next account
@@ -148,13 +174,7 @@ public sealed class AccountService
         if (!Directory.Exists(_dir)) return;
         foreach (var file in Directory.GetFiles(_dir, "*.json"))
         {
-            try
-            {
-                var backupDir = Path.Combine(_dir, ".backup", DateTime.UtcNow.ToString("yyyyMMddHHmmss"));
-                Directory.CreateDirectory(backupDir);
-                File.Copy(file, Path.Combine(backupDir, Path.GetFileName(file)), overwrite: true);
-                File.Delete(file);
-            }
+            try { BackupAndDelete(file); }
             catch { }
         }
     }
@@ -163,7 +183,8 @@ public sealed class AccountService
     {
         EnsureDir();
         var json = JsonSerializer.Serialize(account, JsonOptions);
-        File.WriteAllText(FilePath(account.Id), json);
+        var path = FilePath(account.Id);
+        CredentialBackups.WriteOwnerOnly(path, json);
     }
 
     private void ClearDefault(IEnumerable<PerplexityAccountSettings> accounts)
