@@ -38,8 +38,8 @@ jobs:
       run:
         working-directory: site
     env:
-      SITE_URL: https://${{ github.repository_owner }}.github.io
-      SITE_BASE: /${{ github.event.repository.name }}/
+      SITE_URL: https://tunnel-agent.beyondhumane.com
+      SITE_BASE: /
     steps:
       - uses: actions/checkout@v7
         with:
