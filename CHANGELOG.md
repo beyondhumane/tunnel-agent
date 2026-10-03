@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.1.12] - 2026-10-03
+
 ### Security
 
 - **Perplexity account backups kept forever and readable by other users** (`AccountService`, `CredentialBackups`): removing a Perplexity account (or resetting all of them) copied its session token into `.backup/` inside the accounts folder with default permissions and never deleted it. These backups now go to the same `credential-backups/{timestamp}/perplexity/` folder as the CLIProxyAPI ones, with owner-only permissions (0700 folder, 0600 file), and are deleted after 7 days; old backups left in `.backup/` are locked to the owner (0700) and deleted after 7 days too. Account files are now created as 0600 inside a 0700 folder.
@@ -1096,6 +1098,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Engine always reads version from binary at startup (never trusts cached value)
 - Update notification triggers reactively from `StateChanged` rather than at a fixed startup point
 
+[1.1.12]: https://github.com/Villoh/tunnel-agent/compare/v1.1.11...v1.1.12
 [1.1.11]: https://github.com/Villoh/tunnel-agent/compare/v1.1.10...v1.1.11
 [1.1.10]: https://github.com/Villoh/tunnel-agent/compare/v1.1.9...v1.1.10
 [1.1.9]: https://github.com/Villoh/tunnel-agent/compare/v1.1.8...v1.1.9
