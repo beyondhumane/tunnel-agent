@@ -167,6 +167,8 @@ body {
   text-rendering: optimizeLegibility;
 }
 ::selection { background: var(--accent-soft); }
+/* Tailwind v4 preflight resets buttons to the default cursor. */
+button:not(:disabled), [role="button"]:not([aria-disabled="true"]), summary { cursor: pointer; }
 
 .bg-grid {
   background-image:
