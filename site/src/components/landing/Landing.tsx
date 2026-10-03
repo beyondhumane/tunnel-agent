@@ -5,18 +5,11 @@ import { useEffect, useState } from 'react';
 import { AppleIcon, GitHubIcon, LinuxIcon, WindowsIcon } from '../icons';
 import { AppMock } from './AppMock';
 import { AGENTS, IDES, PROVIDERS } from './brands';
+import { AppWindow, type WindowView } from './AppWindow';
 import { BrandIcon, Endpoint, Eyebrow, Section } from './ui';
 import { Reveal, Tilt, spotlight, useInView, useReducedMotion } from '@/lib/motion';
 import { docPath } from '@/lib/router';
 import { DOWNLOADS, RELEASES_URL, REPO_URL, url, VERSION } from '@/lib/site';
-import agentsShot from '../../../../assets/agents.png';
-import configShot from '../../../../assets/configuration.png';
-import fallbackShot from '../../../../assets/fallback.png';
-import homeShot from '../../../../assets/home.png';
-import logsShot from '../../../../assets/logs.png';
-import cliproxyShot from '../../../../assets/providers-cliproxy.png';
-import perplexityShot from '../../../../assets/providers-perplexity.png';
-import quotaShot from '../../../../assets/quota.png';
 
 const btnPrimary =
   'sheen group inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-lg hover:shadow-accent/30 active:translate-y-0';
@@ -356,25 +349,24 @@ function Agents() {
   );
 }
 
-const SHOTS = [
-  { id: 'home', label: 'Dashboard', src: homeShot },
-  { id: 'cliproxy', label: 'Providers', src: cliproxyShot },
-  { id: 'perplexity', label: 'Perplexity', src: perplexityShot },
-  { id: 'quota', label: 'Quota', src: quotaShot },
-  { id: 'fallback', label: 'Fallback', src: fallbackShot },
-  { id: 'agents', label: 'Agents', src: agentsShot },
-  { id: 'config', label: 'Configuration', src: configShot },
-  { id: 'logs', label: 'Logs', src: logsShot },
+const SHOTS: { id: WindowView; label: string }[] = [
+  { id: 'home', label: 'Dashboard' },
+  { id: 'cliproxy', label: 'Providers' },
+  { id: 'perplexity', label: 'Perplexity' },
+  { id: 'quota', label: 'Quota' },
+  { id: 'fallback', label: 'Fallback' },
+  { id: 'agents', label: 'Agents' },
+  { id: 'config', label: 'Configuration' },
+  { id: 'logs', label: 'Logs' },
 ];
 
 const TOUR_MS = 5000;
 
 function Tour() {
-  const [active, setActive] = useState(SHOTS[0].id);
+  const [active, setActive] = useState<WindowView>('home');
   const [auto, setAuto] = useState(true);
   const [paused, setPaused] = useState(false);
   const [ref, inView] = useInView<HTMLDivElement>();
-  const shot = SHOTS.find((s) => s.id === active)!;
   const reduced = useReducedMotion();
   const playing = auto && inView && !paused && !reduced;
 
@@ -388,8 +380,8 @@ function Tour() {
   }, [playing, active]);
 
   return (
-    <Section id="tour" eyebrow="Tour" title="See the real thing." intro="Screenshots from the desktop app in dark mode.">
-      <div className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0" role="tablist" aria-label="Screenshots">
+    <Section id="tour" eyebrow="Tour" title="Take it for a spin." intro="A working replica of every screen in the desktop app. Flip switches, reorder fallbacks, search the logs — it follows the site theme.">
+      <div className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0" role="tablist" aria-label="App screens">
         {SHOTS.map((s) => (
           <button
             key={s.id}
@@ -424,14 +416,15 @@ function Tour() {
       >
         <div className="bg-grid animate-grid-pan pointer-events-none absolute inset-0 opacity-60" aria-hidden="true" />
         <div className="pointer-events-none absolute -bottom-32 left-1/2 h-64 w-[70%] -translate-x-1/2 rounded-full bg-accent/15 blur-3xl" aria-hidden="true" />
-        <img
-          key={shot.id}
-          src={shot.src}
-          alt={`Tunnel Agent ${shot.label} view`}
-          width={820}
-          height={620}
-          className="animate-view relative h-auto w-full max-w-[820px] rounded-xl border border-line-strong shadow-2xl"
-        />
+        <div className="relative w-full max-w-[920px]">
+          <AppWindow
+            view={active}
+            onView={(v) => {
+              setActive(v);
+              setAuto(false);
+            }}
+          />
+        </div>
       </div>
     </Section>
   );

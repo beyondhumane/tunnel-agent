@@ -153,6 +153,11 @@
 
 .marquee-mask { mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent); }
 
+@keyframes draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+.draw { stroke-dasharray: 1; animation: draw 1.4s cubic-bezier(0.4, 0, 0.2, 1) both; }
+.fade-in { animation: fade-in 1s 0.4s ease both; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
   .js .reveal, .js .type-line { opacity: 1 !important; transform: none !important; }
