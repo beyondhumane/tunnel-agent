@@ -78,7 +78,22 @@ public static class CredentialBackups
             File.SetUnixFileMode(file, UnixFileMode.UserRead | UnixFileMode.UserWrite);
     }
 
-    private static void CreateOwnerOnlyDirectory(string path)
+    /// <summary>
+    /// Writes <paramref name="contents"/> to <paramref name="file"/>, creating it as 0600 on Unix so the
+    /// data is never readable by other users, even briefly.
+    /// </summary>
+    public static void WriteOwnerOnly(string file, string contents)
+    {
+        var options = new FileStreamOptions { Mode = FileMode.Create, Access = FileAccess.Write };
+        if (!OperatingSystem.IsWindows())
+            options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+        using (var writer = new StreamWriter(file, new System.Text.UTF8Encoding(false), options))
+            writer.Write(contents);
+        RestrictToOwner(file);
+    }
+
+    /// <summary>Creates <paramref name="path"/> if needed and sets it to 0700 on Unix.</summary>
+    public static void CreateOwnerOnlyDirectory(string path)
     {
         Directory.CreateDirectory(path);
         if (!OperatingSystem.IsWindows())

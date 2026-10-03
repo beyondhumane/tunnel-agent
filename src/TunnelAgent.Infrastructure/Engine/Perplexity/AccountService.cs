@@ -38,6 +38,8 @@ public sealed class AccountService
         {
             CredentialBackups.Prune(_backupRoot, nowUtc);
             var legacy = Path.Combine(_dir, ".backup");
+            if (Directory.Exists(legacy))
+                CredentialBackups.CreateOwnerOnlyDirectory(legacy);
             CredentialBackups.Prune(legacy, nowUtc);
             if (Directory.Exists(legacy) && !Directory.EnumerateFileSystemEntries(legacy).Any())
                 Directory.Delete(legacy);
@@ -51,7 +53,7 @@ public sealed class AccountService
     private void BackupAndDelete(string file) =>
         CredentialBackups.BackupAndDelete(file, _backupRoot, BackupSubdirectory);
 
-    private void EnsureDir() => Directory.CreateDirectory(_dir);
+    private void EnsureDir() => CredentialBackups.CreateOwnerOnlyDirectory(_dir);
 
     private string FilePath(string id) => Path.Combine(_dir, $"{id}.json");
 
@@ -182,8 +184,7 @@ public sealed class AccountService
         EnsureDir();
         var json = JsonSerializer.Serialize(account, JsonOptions);
         var path = FilePath(account.Id);
-        File.WriteAllText(path, json);
-        CredentialBackups.RestrictToOwner(path);
+        CredentialBackups.WriteOwnerOnly(path, json);
     }
 
     private void ClearDefault(IEnumerable<PerplexityAccountSettings> accounts)

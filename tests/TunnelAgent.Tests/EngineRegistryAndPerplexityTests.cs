@@ -77,6 +77,7 @@ public sealed class EngineRegistryAndPerplexityTests
             const System.IO.UnixFileMode ownerRw = System.IO.UnixFileMode.UserRead | System.IO.UnixFileMode.UserWrite;
             Assert.Equal(ownerRw, System.IO.File.GetUnixFileMode(backup));
             Assert.Equal(ownerRw, System.IO.File.GetUnixFileMode(System.IO.Path.Combine(accountsDir, $"{service.Add("Other", "t").Id}.json")));
+            Assert.Equal(ownerRw | System.IO.UnixFileMode.UserExecute, System.IO.File.GetUnixFileMode(accountsDir));
         }
     }
 
@@ -98,5 +99,8 @@ public sealed class EngineRegistryAndPerplexityTests
 
         Assert.False(System.IO.Directory.Exists(expired));
         Assert.True(System.IO.Directory.Exists(recent));
+        if (!OperatingSystem.IsWindows())
+            Assert.Equal(System.IO.UnixFileMode.UserRead | System.IO.UnixFileMode.UserWrite | System.IO.UnixFileMode.UserExecute,
+                System.IO.File.GetUnixFileMode(legacy));
     }
 }
