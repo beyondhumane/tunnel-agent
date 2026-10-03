@@ -3,13 +3,15 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 namespace TunnelAgent.Infrastructure.Engine.CliProxy;
 
 /// <summary>
 /// One authenticated OAuth session found in the auth-dir.
-/// Filename format: {type}-{email}[-{plan}].json
-/// e.g. codex-me@gmail.com-plus.json → type=codex, email=me@gmail.com, plan=PLUS
+/// Filename format: {type}-[{id}-]{email}[-{plan}].json (the JSON email wins when present)
+/// e.g. codex-me@gmail.com-plus.json or codex-8017738c-me@gmail.com-plus.json
+/// → type=codex, email=me@gmail.com, plan=PLUS
 /// </summary>
 public sealed class OAuthAccount
 {
@@ -120,8 +122,8 @@ public sealed class OAuthTokenDetector
 
     /// <summary>
     /// Token files for a prefix, optionally filtered to one account. An account matches by
-    /// filename (<c>{prefix}-{email}*</c>) or by the JSON <c>email</c> field, since some
-    /// providers (e.g. Meta) sanitize the email in the filename.
+    /// the JSON <c>email</c> field when present, since some providers (e.g. Meta) sanitize
+    /// the email in the filename; otherwise by the legacy filename <c>{prefix}-{email}[-{plan}]</c>.
     /// </summary>
     public static IEnumerable<string> GetTokenFiles(string directory, string prefix, string? email = null)
     {
@@ -131,10 +133,16 @@ public sealed class OAuthTokenDetector
         {
             var name = Path.GetFileName(file);
             if (name.StartsWith("openai-compat-", StringComparison.OrdinalIgnoreCase)) continue;
-            if (email is null
-                || name.StartsWith($"{prefix}-{email}", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(ReadEmail(file), email, StringComparison.OrdinalIgnoreCase))
+            if (email is null)
+            {
                 yield return file;
+                continue;
+            }
+            var jsonEmail = ReadEmail(file);
+            var matches = string.IsNullOrEmpty(jsonEmail)
+                ? IsEmailWithOptionalPlan(LegacyAccountPart(name, prefix), email)
+                : string.Equals(jsonEmail, email, StringComparison.OrdinalIgnoreCase);
+            if (matches) yield return file;
         }
     }
 
@@ -185,16 +193,47 @@ public sealed class OAuthTokenDetector
         catch { return null; }
     }
 
+    /// <summary>Filename without the provider prefix, e.g. "codex-me@gmail.com-plus.json" → "me@gmail.com-plus".</summary>
+    private static string LegacyAccountPart(string fileName, string prefix)
+    {
+        var name = Path.GetFileNameWithoutExtension(fileName);
+        return name.Length > prefix.Length + 1 ? name[(prefix.Length + 1)..] : "";
+    }
+
     /// <summary>
-    /// Extracts email from filename: {prefix}-{email}[-{plan}].json
-    /// e.g. "codex-me@gmail.com-plus.json" → "me@gmail.com"
+    /// What follows <paramref name="email"/> in a <c>{prefix}-[{id}-]{email}[-{plan}]</c> filename,
+    /// where {id} is CLIProxyAPI's 8-hex-digit identity hash; null when the email isn't there.
+    /// </summary>
+    private static string? AfterEmail(string fileName, string prefix, string email)
+    {
+        var rest = LegacyAccountPart(fileName, prefix);
+        if (rest.StartsWith(email, StringComparison.OrdinalIgnoreCase)) return rest[email.Length..];
+        if (FileIdPrefix.IsMatch(rest) && rest[9..].StartsWith(email, StringComparison.OrdinalIgnoreCase))
+            return rest[(9 + email.Length)..];
+        return null;
+    }
+
+    private static readonly Regex FileIdPrefix = new("^[0-9a-fA-F]{8}-", RegexOptions.Compiled);
+
+    /// <summary>
+    /// True for "{email}" or "{email}-{plan}". Plans never contain dots, so "a@x.com" does not
+    /// match "a@x.com.au" or "a@x.com-foo.org".
+    /// </summary>
+    private static bool IsEmailWithOptionalPlan(string accountPart, string email)
+    {
+        if (!accountPart.StartsWith(email, StringComparison.OrdinalIgnoreCase)) return false;
+        var suffix = accountPart[email.Length..];
+        return suffix.Length == 0 || (suffix.Length > 1 && suffix[0] == '-' && !suffix.Contains('.'));
+    }
+
+    /// <summary>
+    /// Extracts email from a legacy filename: {prefix}-{email}[-{plan}].json
+    /// e.g. "codex-me@gmail.com-plus.json" → "me@gmail.com". Only used when the JSON has no
+    /// <c>email</c>, which CLIProxyAPI always writes for id-prefixed filenames.
     /// </summary>
     private static string EmailFromFilename(string filePath, string prefix)
     {
-        var name = Path.GetFileNameWithoutExtension(filePath); // e.g. "codex-me@gmail.com-plus"
-        var afterPrefix = name.Length > prefix.Length + 1
-            ? name[(prefix.Length + 1)..]   // "me@gmail.com-plus"
-            : "";
+        var afterPrefix = LegacyAccountPart(filePath, prefix); // e.g. "me@gmail.com-plus"
 
         if (string.IsNullOrEmpty(afterPrefix)) return "";
 
@@ -219,18 +258,17 @@ public sealed class OAuthTokenDetector
 
     /// <summary>
     /// Extracts plan badge from filename suffix after the email.
-    /// e.g. "codex-me@gmail.com-plus.json" → "PLUS"
+    /// e.g. "codex-me@gmail.com-plus.json" or "codex-8017738c-me@gmail.com-plus.json" → "PLUS"
     /// </summary>
     private static string PlanFromFilename(string filePath, string prefix, string email)
     {
         if (string.IsNullOrEmpty(email)) return "";
 
-        var name = Path.GetFileNameWithoutExtension(filePath);
-        // Everything after "{prefix}-{email}-"
-        var key  = $"{prefix}-{email}-";
-        if (!name.StartsWith(key, StringComparison.OrdinalIgnoreCase)) return "";
+        // Everything after "{email}-"
+        var rest = AfterEmail(filePath, prefix, email);
+        if (rest is null || !rest.StartsWith('-')) return "";
 
-        var suffix = name[key.Length..];
+        var suffix = rest[1..];
         return IsKnownPlan(suffix) ? ToPlanBadge(suffix) : "";
     }
 
@@ -244,6 +282,7 @@ public sealed class OAuthTokenDetector
     private static bool IsKnownPlan(string s) =>
         s.Equals("plus",  StringComparison.OrdinalIgnoreCase) ||
         s.Equals("pro",   StringComparison.OrdinalIgnoreCase) ||
+        s.Equals("prolite", StringComparison.OrdinalIgnoreCase) ||
         s.Equals("free",  StringComparison.OrdinalIgnoreCase) ||
         s.Equals("team",  StringComparison.OrdinalIgnoreCase) ||
         s.Equals("enterprise", StringComparison.OrdinalIgnoreCase);

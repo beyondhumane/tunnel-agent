@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using IconPacks.Avalonia.SimpleIcons;
 using TunnelAgent.Services;
 using TunnelAgent.ViewModels;
@@ -142,5 +143,38 @@ public sealed class QuotaFetchServiceEdgeTests
         Assert.Equal(3, provider.Accounts.Count);
         foreach (var account in provider.Accounts)
             Assert.Empty(account.QuotaBars);
+    }
+
+    [Fact]
+    public void ReadAccessToken_HashedFilename_ReturnsToken()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(temp.File("claude-f9c692a7-name@domain.com.json"),
+            new JsonObject { ["email"] = "name@domain.com", ["access_token"] = "sk-ant-oat" }.ToJsonString());
+        var service = new QuotaFetchService(temp.Path);
+
+        Assert.Equal("sk-ant-oat", service.ReadAccessToken("claude", "name@domain.com"));
+    }
+
+    [Fact]
+    public void ReadAccessToken_LegacyFilename_ReturnsToken()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(temp.File("claude-name@domain.com.json"),
+            new JsonObject { ["access_token"] = "sk-ant-oat" }.ToJsonString());
+        var service = new QuotaFetchService(temp.Path);
+
+        Assert.Equal("sk-ant-oat", service.ReadAccessToken("claude", "name@domain.com"));
+    }
+
+    [Fact]
+    public void ReadCodexToken_LegacyFilenameWithoutJsonEmail_ReturnsToken()
+    {
+        using var temp = new TestTempDirectory();
+        File.WriteAllText(temp.File("codex-name@domain.com-plus.json"),
+            new JsonObject { ["access_token"] = "codex-token" }.ToJsonString());
+        var service = new QuotaFetchService(temp.Path);
+
+        Assert.Equal("codex-token", service.ReadCodexToken("name@domain.com").token);
     }
 }
