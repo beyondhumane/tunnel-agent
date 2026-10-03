@@ -178,6 +178,13 @@ public sealed class OAuthServiceTests
         Assert.DoesNotContain("stdin:", exit.Output);
     }
 
+    [Theory]
+    [InlineData("Waiting for callback\nClaude authentication failed: context deadline exceeded\n", true)]
+    [InlineData("time=\"…\" level=error msg=\"Antigravity authentication failed: denied\"\n", true)]
+    [InlineData("Authentication saved to /auth/claude-f9c692a7-me@example.com.json\nClaude authentication successful\n", false)]
+    public void ReportsFailure_DetectsCliProxyFailureLine(string output, bool expected) =>
+        Assert.Equal(expected, OAuthService.ReportsFailure(output));
+
     [Fact]
     public void FailureSummary_KeepsLastNonEmptyLines()
     {

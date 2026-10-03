@@ -188,6 +188,55 @@ public sealed class ProviderCatalogServiceEdgeTests
     }
 
     [Fact]
+    public async Task SyncOAuthAccounts_FileReplacedBySameEmail_KeepsRowAndClearsOldQuota()
+    {
+        using var temp = new TestTempDirectory();
+        var authDir = temp.File("auth");
+        Directory.CreateDirectory(authDir);
+        File.WriteAllText(Path.Combine(authDir, "claude-name@domain.com.json"),
+            "{\"email\":\"name@domain.com\",\"access_token\":\"a\"}");
+        var settings = new SettingsService(temp.File("settings.json"));
+        await settings.LoadAsync();
+        var config = new ConfigService(settings, temp.File("proxy-config.yaml"), authDir);
+        using var catalog = new ProviderCatalogService(settings, config, authDir);
+        await catalog.InitializeAsync();
+        var vm = catalog.Providers.Single(p => p.Id == "claude");
+        var row = Assert.Single(vm.Accounts);
+        row.IsDisabled = true;
+        row.QuotaError = "loc:Quota_Error_Title";
+        row.PlanBadge = "MAX";
+
+        catalog.SyncOAuthAccounts(vm, [new OAuthAccount
+        {
+            ProviderId = "claude",
+            Email = "name@domain.com",
+            Plan = "PRO",
+            IsDisabled = true,
+            TokenFile = "claude-f9c692a7-name@domain.com.json",
+        }]);
+
+        Assert.Same(row, Assert.Single(vm.Accounts));
+        Assert.Equal("claude-f9c692a7-name@domain.com.json", row.TokenFile);
+        Assert.Equal("", row.QuotaError);
+        Assert.Equal("PRO", row.PlanBadge);
+    }
+
+    [Fact]
+    public void UniqueBackupPath_NeverReturnsAnExistingFile()
+    {
+        using var temp = new TestTempDirectory();
+        var dir = temp.File("backup");
+        Directory.CreateDirectory(dir);
+        File.WriteAllText(Path.Combine(dir, "claude-me@example.com.json"), "{}");
+        File.WriteAllText(Path.Combine(dir, "claude-me@example.com.2.json"), "{}");
+
+        Assert.Equal(Path.Combine(dir, "claude-me@example.com.3.json"),
+            ProviderCatalogService.UniqueBackupPath(dir, "claude-me@example.com.json"));
+        Assert.Equal(Path.Combine(dir, "codex-me@example.com.json"),
+            ProviderCatalogService.UniqueBackupPath(dir, "codex-me@example.com.json"));
+    }
+
+    [Fact]
     public void PruneCredentialBackups_DeletesOnlyBackupsPastRetention()
     {
         using var temp = new TestTempDirectory();

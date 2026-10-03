@@ -315,6 +315,9 @@ SelectedSection is SectionKey.Logs;
     // having written a token, and turns into an error when it exits without one.
     private string? _pendingOAuthProviderId;
 
+    // Failure of a login whose toast was replaced by another provider's login; shown once that toast closes.
+    private string? _deferredOAuthError;
+
     private CancellationTokenSource? _oauthStatusDismissCts;
 
     partial void OnShowOAuthStatusChanged(bool value)
@@ -333,7 +336,9 @@ SelectedSection is SectionKey.Logs;
             if (t.IsCanceled) return;
             Dispatcher.UIThread.Post(() =>
             {
-                if (_oauthStatusDismissCts == cts) ShowOAuthStatus = false;
+                if (_oauthStatusDismissCts != cts) return;
+                ShowOAuthStatus = false;
+                ShowDeferredOAuthError();
             });
         }, TaskScheduler.Default);
     }
@@ -343,6 +348,14 @@ SelectedSection is SectionKey.Logs;
     {
         _pendingOAuthProviderId = null;
         ShowOAuthStatus = false;
+        ShowDeferredOAuthError();
+    }
+
+    private void ShowDeferredOAuthError()
+    {
+        if (_deferredOAuthError is not { } message) return;
+        _deferredOAuthError = null;
+        ShowOAuthStatusMessage(message, isError: true);
     }
 
     [ObservableProperty] private bool _showConfigurationStatus;
@@ -1964,7 +1977,8 @@ SelectedSection is SectionKey.Logs;
 
     /// <summary>
     /// Runs when a login process exits. CLIProxyAPI exits 0 on most failures (cancelled in the
-    /// browser, callback timeout, failed code exchange), so success means a token file was written.
+    /// browser, callback timeout, failed code exchange), so success means a token file was written
+    /// and the output does not report a failure.
     /// </summary>
     private void CompleteOAuthLogin(string providerId, OAuthLoginExit exit, IReadOnlyDictionary<string, DateTime> baseline)
     {
@@ -1973,16 +1987,27 @@ SelectedSection is SectionKey.Logs;
         var showsThisLogin = _pendingOAuthProviderId == providerId;
         if (showsThisLogin) _pendingOAuthProviderId = null;
 
-        if (OAuthTokenDetector.HasNewToken(baseline, _catalog.OAuthTokenWriteTimes(providerId)))
+        if (!OAuthService.ReportsFailure(exit.Output)
+            && OAuthTokenDetector.HasNewToken(baseline, _catalog.OAuthTokenWriteTimes(providerId)))
         {
-            if (showsThisLogin) ShowOAuthStatus = false;
+            if (!showsThisLogin) return;
+            ShowOAuthStatus = false;
+            ShowDeferredOAuthError();
             return;
         }
 
         var detail = OAuthService.FailureSummary(exit.Output);
-        ShowOAuthStatusMessage(detail.Length == 0
+        var message = detail.Length == 0
             ? Localization.GetString("OAuth_Status_FailedUnexpected")
-            : Localization.GetString("OAuth_Status_Failed", detail), isError: true);
+            : Localization.GetString("OAuth_Status_Failed", detail);
+
+        // Don't hide another login's sign-in URL or status; show this failure once that toast closes.
+        if (!showsThisLogin && _pendingOAuthProviderId is not null && ShowOAuthStatus)
+        {
+            _deferredOAuthError = message;
+            return;
+        }
+        ShowOAuthStatusMessage(message, isError: true);
     }
 
     private string LocalizeOAuthResult(OAuthConnectResult result) => result.Status switch

@@ -842,7 +842,7 @@ public sealed class QuotaFetchService
 
     private async Task FetchDevinAsync(ProviderAccountViewModel account, CancellationToken ct)
     {
-        var token = ReadDevinSessionToken(account.Email);
+        var token = ReadDevinSessionToken(account.Email, account.TokenFile);
         if (token is null)
         {
             SetQuotaError(account, QuotaErrorTokenUnavailable("Devin"));
@@ -942,10 +942,10 @@ public sealed class QuotaFetchService
             System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var p) ? p : null;
     }
 
-    private string? ReadDevinSessionToken(string email)
+    internal string? ReadDevinSessionToken(string email, string? tokenFile = null)
     {
         if (!Directory.Exists(_authDir)) return null;
-        foreach (var file in Directory.GetFiles(_authDir, "devin-*.json"))
+        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, "devin", null, tokenFile))
         {
             try
             {
@@ -976,7 +976,7 @@ public sealed class QuotaFetchService
 
     private async Task FetchAntigravityAsync(ProviderAccountViewModel account, CancellationToken ct)
     {
-        var token = await ReadAntigravityTokenAsync(account.Email, ct);
+        var token = await ReadAntigravityTokenAsync(account.Email, ct, account.TokenFile);
         if (token is null)
         {
             SetQuotaError(account, QuotaErrorTokenUnavailable("Antigravity"));
@@ -1084,7 +1084,7 @@ public sealed class QuotaFetchService
         catch { }
     }
 
-    private async Task<string?> ReadAntigravityTokenAsync(string email, CancellationToken ct)
+    internal async Task<string?> ReadAntigravityTokenAsync(string email, CancellationToken ct, string? tokenFile = null)
     {
         // Antigravity OAuth credentials (from Quotio open-source implementation)
         // These are public OAuth app credentials, not user secrets
@@ -1093,7 +1093,7 @@ public sealed class QuotaFetchService
         const string tokenUri     = "https://oauth2.googleapis.com/token";
 
         if (!Directory.Exists(_authDir)) return null;
-        foreach (var file in Directory.GetFiles(_authDir, "antigravity-*.json"))
+        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, "antigravity", null, tokenFile))
         {
             try
             {
@@ -1135,7 +1135,7 @@ public sealed class QuotaFetchService
 
     private async Task FetchXaiAsync(ProviderAccountViewModel account, CancellationToken ct)
     {
-        var token = await ReadXaiTokenAsync(account.Email, ct);
+        var token = await ReadXaiTokenAsync(account.Email, ct, account.TokenFile);
         if (token is null)
         {
             SetQuotaError(account, QuotaErrorTokenUnavailable("xAI"));
@@ -1217,10 +1217,10 @@ public sealed class QuotaFetchService
         catch { }
     }
 
-    private async Task<string?> ReadXaiTokenAsync(string email, CancellationToken ct)
+    internal async Task<string?> ReadXaiTokenAsync(string email, CancellationToken ct, string? tokenFile = null)
     {
         if (!Directory.Exists(_authDir)) return null;
-        foreach (var file in Directory.GetFiles(_authDir, "xai-*.json"))
+        foreach (var file in OAuthTokenDetector.GetTokenFiles(_authDir, "xai", null, tokenFile))
         {
             try
             {

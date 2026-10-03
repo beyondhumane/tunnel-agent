@@ -356,6 +356,17 @@ public sealed class ProviderCatalogService : IDisposable
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
     }
 
+    /// <summary>A path in <paramref name="backupDir"/> that doesn't exist yet, so a backup never replaces an earlier one.</summary>
+    internal static string UniqueBackupPath(string backupDir, string fileName)
+    {
+        var path = Path.Combine(backupDir, fileName);
+        var stem = Path.GetFileNameWithoutExtension(fileName);
+        var ext  = Path.GetExtension(fileName);
+        for (var i = 2; File.Exists(path); i++)
+            path = Path.Combine(backupDir, $"{stem}.{i}{ext}");
+        return path;
+    }
+
     private static void BackupAndDeleteCredentialFile(string file, string reason)
     {
         try
@@ -366,8 +377,8 @@ public sealed class ProviderCatalogService : IDisposable
             CreateOwnerOnlyDirectory(root);
             CreateOwnerOnlyDirectory(backupDir);
 
-            var backupPath = Path.Combine(backupDir, Path.GetFileName(file));
-            File.Copy(file, backupPath, overwrite: true);
+            var backupPath = UniqueBackupPath(backupDir, Path.GetFileName(file));
+            File.Copy(file, backupPath, overwrite: false);
             if (!OperatingSystem.IsWindows())
                 File.SetUnixFileMode(backupPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
             File.Delete(file);
@@ -529,7 +540,7 @@ public sealed class ProviderCatalogService : IDisposable
         });
     }
 
-    private void SyncOAuthAccounts(ProviderViewModel vm, List<OAuthAccount> accounts)
+    internal void SyncOAuthAccounts(ProviderViewModel vm, List<OAuthAccount> accounts)
     {
         // Rows are keyed by token file: one email can have several (one per Claude
         // organization or Codex workspace).
@@ -544,8 +555,10 @@ public sealed class ProviderCatalogService : IDisposable
             else matched[row] = r;
         }
 
-        // A renamed file (e.g. CLIProxyAPI moving "claude-{email}.json" to "claude-{id}-{email}.json")
-        // keeps its row, quota included.
+        // A row whose file was replaced by another file of the same email (a rename such as
+        // "claude-{email}.json" → "claude-{id}-{email}.json", or a different organization) keeps
+        // its place, but its quota, plan and resets belonged to the old token and are re-fetched.
+        var replaced = new List<ProviderAccountViewModel>();
         foreach (var r in unmatched.ToList())
         {
             var row = rows.FirstOrDefault(a => !matched.ContainsKey(a)
@@ -553,6 +566,9 @@ public sealed class ProviderCatalogService : IDisposable
             if (row is null) continue;
             matched[row] = r;
             unmatched.Remove(r);
+            ClearAccountQuota(row);
+            row.PlanBadge = r.Plan;
+            replaced.Add(row);
         }
 
         foreach (var a in rows.Where(a => !matched.ContainsKey(a))) vm.Accounts.Remove(a);
@@ -588,6 +604,18 @@ public sealed class ProviderCatalogService : IDisposable
         }
 
         vm.RefreshAccountCount();
+
+        foreach (var row in replaced.Where(a => vm.IsEnabled && !a.IsDisabled))
+            _ = _quota.FetchAccountPublicAsync(vm.Id, row);
+    }
+
+    private static void ClearAccountQuota(ProviderAccountViewModel account)
+    {
+        account.QuotaBars.Clear();
+        account.ResetCredits.Clear();
+        account.QuotaNotice = "";
+        account.QuotaError = "";
+        account.QuotaFetchedEmpty = false;
     }
 
     private void SyncCustomAccounts(ProviderViewModel vm, List<ProviderAccountSettings> records)

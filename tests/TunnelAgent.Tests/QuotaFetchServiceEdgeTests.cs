@@ -207,4 +207,30 @@ public sealed class QuotaFetchServiceEdgeTests
         Assert.Equal("plus-token", token);
         Assert.Equal("plus", accountId);
     }
+
+    [Fact]
+    public async Task ReadDevinAntigravityXaiTokens_SameEmail_ReadTheGivenFile()
+    {
+        using var temp = new TestTempDirectory();
+        var notExpired = DateTimeOffset.UtcNow.AddHours(1).ToString("O");
+        foreach (var (provider, id) in new[] { ("devin", "aaaaaaaa"), ("devin", "bbbbbbbb"),
+                                               ("antigravity", "aaaaaaaa"), ("antigravity", "bbbbbbbb"),
+                                               ("xai", "aaaaaaaa"), ("xai", "bbbbbbbb") })
+        {
+            File.WriteAllText(temp.File($"{provider}-{id}-name@domain.com.json"), new JsonObject
+            {
+                ["email"] = "name@domain.com",
+                ["session_token"] = $"{provider}-{id}",
+                ["access_token"] = $"{provider}-{id}",
+                ["expired"] = notExpired,
+            }.ToJsonString());
+        }
+        var service = new QuotaFetchService(temp.Path);
+
+        Assert.Equal("devin-bbbbbbbb", service.ReadDevinSessionToken("name@domain.com", "devin-bbbbbbbb-name@domain.com.json"));
+        Assert.Equal("antigravity-bbbbbbbb",
+            await service.ReadAntigravityTokenAsync("name@domain.com", CancellationToken.None, "antigravity-bbbbbbbb-name@domain.com.json"));
+        Assert.Equal("xai-bbbbbbbb",
+            await service.ReadXaiTokenAsync("name@domain.com", CancellationToken.None, "xai-bbbbbbbb-name@domain.com.json"));
+    }
 }

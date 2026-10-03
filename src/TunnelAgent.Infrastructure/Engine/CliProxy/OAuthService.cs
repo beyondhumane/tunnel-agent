@@ -248,6 +248,14 @@ public sealed class OAuthService : IDisposable
         var lines = output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         return string.Join(Environment.NewLine, lines[Math.Max(0, lines.Length - maxLines)..]);
     }
+
+    /// <summary>
+    /// True when the login output reports a failure. Every CLIProxyAPI login command prints
+    /// "{Provider} authentication failed: …" before exiting 0, so this catches failures even when
+    /// another write (e.g. a token refresh) touched the provider's token files meanwhile.
+    /// </summary>
+    public static bool ReportsFailure(string output) =>
+        output.Contains("authentication failed", StringComparison.OrdinalIgnoreCase);
     // ── helpers ───────────────────────────────────────────────────────────────
 
     private static string ProviderDisplayName(string providerId) => providerId switch
