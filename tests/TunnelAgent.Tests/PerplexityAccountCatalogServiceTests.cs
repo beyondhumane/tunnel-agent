@@ -22,7 +22,7 @@ public sealed class PerplexityAccountCatalogServiceTests : IDisposable
     private static PerplexityAccountCatalogService CreateService(TestTempDirectory temp)
     {
         var dir = System.IO.Path.Combine(temp.Path, "perplexity-accounts");
-        return new PerplexityAccountCatalogService(new AccountService(dir));
+        return new PerplexityAccountCatalogService(new AccountService(dir, System.IO.Path.Combine(temp.Path, "credential-backups")));
     }
 
     private sealed class InMemoryUserEnvironmentService : TunnelAgent.Services.IUserEnvironmentService

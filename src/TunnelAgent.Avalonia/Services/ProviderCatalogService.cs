@@ -94,7 +94,7 @@ public sealed class ProviderCatalogService : IDisposable
             existing.Kind = provider.Kind;
         }
         BuildProviderList();
-        PruneCredentialBackups(CredentialBackupRoot, DateTime.UtcNow);
+        CredentialBackups.Prune(CredentialBackups.DefaultRoot, DateTime.UtcNow);
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -321,67 +321,11 @@ public sealed class ProviderCatalogService : IDisposable
     private static IEnumerable<string> EnumerateOAuthCredentialFiles(string authDir, string prefix, string? email = null)
         => OAuthTokenDetector.GetTokenFiles(authDir, prefix, email);
 
-    // Backups must live outside auth-dir: CLIProxyAPI's own management UI scans
-    // auth-dir for credential files and would otherwise list these backups as accounts.
-    private static string CredentialBackupRoot =>
-        Path.Combine(IPlatformInfo.Current.LocalDataDirectory, "credential-backups");
-
-    private const string CredentialBackupStampFormat = "yyyyMMddHHmmss";
-
-    /// <summary>Backups hold live refresh tokens, so a removed account stays recoverable only this long.</summary>
-    internal static readonly TimeSpan CredentialBackupRetention = TimeSpan.FromDays(7);
-
-    /// <summary>Deletes backup folders older than <see cref="CredentialBackupRetention"/>.</summary>
-    internal static void PruneCredentialBackups(string root, DateTime nowUtc)
-    {
-        if (!Directory.Exists(root)) return;
-        foreach (var dir in Directory.GetDirectories(root))
-        {
-            if (!DateTime.TryParseExact(Path.GetFileName(dir), CredentialBackupStampFormat, CultureInfo.InvariantCulture,
-                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var createdUtc))
-                continue;
-            if (nowUtc - createdUtc < CredentialBackupRetention) continue;
-            try { Directory.Delete(dir, recursive: true); }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[ProviderCatalogService] Failed to prune credential backup {dir}: {ex.Message}");
-            }
-        }
-    }
-
-    private static void CreateOwnerOnlyDirectory(string path)
-    {
-        Directory.CreateDirectory(path);
-        if (!OperatingSystem.IsWindows())
-            File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-    }
-
-    /// <summary>A path in <paramref name="backupDir"/> that doesn't exist yet, so a backup never replaces an earlier one.</summary>
-    internal static string UniqueBackupPath(string backupDir, string fileName)
-    {
-        var path = Path.Combine(backupDir, fileName);
-        var stem = Path.GetFileNameWithoutExtension(fileName);
-        var ext  = Path.GetExtension(fileName);
-        for (var i = 2; File.Exists(path); i++)
-            path = Path.Combine(backupDir, $"{stem}.{i}{ext}");
-        return path;
-    }
-
     private static void BackupAndDeleteCredentialFile(string file, string reason)
     {
         try
         {
-            var root = CredentialBackupRoot;
-            PruneCredentialBackups(root, DateTime.UtcNow);
-            var backupDir = Path.Combine(root, DateTime.UtcNow.ToString(CredentialBackupStampFormat, CultureInfo.InvariantCulture));
-            CreateOwnerOnlyDirectory(root);
-            CreateOwnerOnlyDirectory(backupDir);
-
-            var backupPath = UniqueBackupPath(backupDir, Path.GetFileName(file));
-            File.Copy(file, backupPath, overwrite: false);
-            if (!OperatingSystem.IsWindows())
-                File.SetUnixFileMode(backupPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-            File.Delete(file);
+            var backupPath = CredentialBackups.BackupAndDelete(file, CredentialBackups.DefaultRoot);
             System.Diagnostics.Debug.WriteLine($"[ProviderCatalogService] Deleted auth file ({reason}): {file}; backup: {backupPath}");
         }
         catch (Exception ex)

@@ -231,9 +231,9 @@ public sealed class ProviderCatalogServiceEdgeTests
         File.WriteAllText(Path.Combine(dir, "claude-me@example.com.2.json"), "{}");
 
         Assert.Equal(Path.Combine(dir, "claude-me@example.com.3.json"),
-            ProviderCatalogService.UniqueBackupPath(dir, "claude-me@example.com.json"));
+            CredentialBackups.UniquePath(dir, "claude-me@example.com.json"));
         Assert.Equal(Path.Combine(dir, "codex-me@example.com.json"),
-            ProviderCatalogService.UniqueBackupPath(dir, "codex-me@example.com.json"));
+            CredentialBackups.UniquePath(dir, "codex-me@example.com.json"));
     }
 
     [Fact]
@@ -251,7 +251,7 @@ public sealed class ProviderCatalogServiceEdgeTests
             File.WriteAllText(Path.Combine(dir, "claude-user@example.com.json"), "{\"refresh_token\":\"r\"}");
         }
 
-        ProviderCatalogService.PruneCredentialBackups(root, now);
+        CredentialBackups.Prune(root, now);
 
         Assert.False(Directory.Exists(expired));
         Assert.True(Directory.Exists(recent));

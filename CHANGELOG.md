@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Security
+
+- **Perplexity account backups kept forever and readable by other users** (`AccountService`, `CredentialBackups`): removing a Perplexity account (or resetting all of them) copied its session token into `.backup/` inside the accounts folder with default permissions and never deleted it. These backups now go to the same `credential-backups/{timestamp}/perplexity/` folder as the CLIProxyAPI ones, with owner-only permissions (0700 folder, 0600 file), and are deleted after 7 days; old backups left in `.backup/` are deleted after 7 days too. Account files themselves are also written with 0600 now.
+
 ## [1.1.11] - 2026-10-02
 
 ### Fixed
