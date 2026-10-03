@@ -1,0 +1,162 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Palette mirrors src/TunnelAgent.Avalonia/Themes/Brushes.axaml. */
+:root {
+  --win: #fcfcfd;
+  --side: #f5f6f8;
+  --card: #ffffff;
+  --line: #e8eaee;
+  --line-strong: #d8dbe0;
+  --fg: #1a1d23;
+  --muted: #646a75;
+  --faint: #9097a2;
+  --btn: #ffffff;
+  --btn-hover: #f5f6f8;
+  --accent: #146cf9;
+  --accent-hover: #307efa;
+  --accent-soft: #146cf91a;
+  --ok: #1f8a5b;
+  --warn: #c98a0b;
+  --err: #c84b36;
+  --info-bg: #eaf2fe;
+  --info-line: #bad4fb;
+  --warn-bg: #fbf2d8;
+  --warn-line: #efd58f;
+  --code: #f5f6f8;
+  color-scheme: light;
+}
+
+.dark {
+  --win: #000000;
+  --side: #0a0a0a;
+  --card: #111111;
+  --line: #1a1a1a;
+  --line-strong: #2a2a2a;
+  --fg: #ededed;
+  --muted: #888888;
+  --faint: #555555;
+  --btn: #1a1a1a;
+  --btn-hover: #222222;
+  --accent: #488cfa;
+  --accent-hover: #669ffb;
+  --accent-soft: #488cfa26;
+  --ok: #46c788;
+  --warn: #e2a52e;
+  --err: #e96b57;
+  --info-bg: #122538;
+  --info-line: #214465;
+  --warn-bg: #2c2410;
+  --warn-line: #4e4015;
+  --code: #0a0a0a;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-win: var(--win);
+  --color-side: var(--side);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-btn: var(--btn);
+  --color-btn-hover: var(--btn-hover);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-err: var(--err);
+  --color-code: var(--code);
+}
+
+@theme {
+  --animate-marquee: marquee 40s linear infinite;
+  --animate-flow: flow 2.4s linear infinite;
+  --animate-pulse-dot: pulse-dot 2.2s ease-in-out infinite;
+}
+
+@keyframes marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-50%, 0, 0); }
+}
+@keyframes flow {
+  from { stroke-dashoffset: 24; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+html { scroll-behavior: smooth; scroll-padding-top: 5rem; }
+body {
+  background: var(--win);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+::selection { background: var(--accent-soft); }
+
+.bg-grid {
+  background-image:
+    linear-gradient(to right, var(--line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 40%, transparent 100%);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Docs prose                                                         */
+/* ------------------------------------------------------------------ */
+.prose { color: var(--fg); font-size: 15px; line-height: 1.75; }
+.prose > * + * { margin-top: 1rem; }
+.prose h2 { margin-top: 2.5rem; padding-top: 0.25rem; font-size: 1.35rem; font-weight: 650; letter-spacing: -0.01em; }
+.prose h3 { margin-top: 1.75rem; font-size: 1.05rem; font-weight: 600; }
+.prose h2 + *, .prose h3 + * { margin-top: 0.6rem; }
+.prose .anchor { margin-left: 0.4rem; color: var(--faint); opacity: 0; text-decoration: none; }
+.prose h2:hover .anchor, .prose h3:hover .anchor { opacity: 1; }
+.prose p, .prose li { color: color-mix(in srgb, var(--fg) 86%, var(--muted)); }
+.prose a { color: var(--accent); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 35%, transparent); text-underline-offset: 3px; }
+.prose a:hover { text-decoration-color: var(--accent); }
+.prose strong { color: var(--fg); font-weight: 600; }
+.prose ul { list-style: disc; padding-left: 1.25rem; }
+.prose ol { list-style: decimal; padding-left: 1.25rem; }
+.prose li + li { margin-top: 0.35rem; }
+.prose li::marker { color: var(--faint); }
+.prose :not(pre) > code {
+  font-family: var(--font-mono); font-size: 0.85em; padding: 0.12rem 0.38rem; border-radius: 6px;
+  background: var(--code); border: 1px solid var(--line); white-space: break-spaces;
+}
+.prose pre {
+  position: relative; overflow-x: auto; padding: 1rem 1.1rem; border-radius: 12px;
+  background: var(--code); border: 1px solid var(--line); font-family: var(--font-mono); font-size: 13px; line-height: 1.65;
+}
+.prose pre .copy {
+  position: absolute; top: 0.5rem; right: 0.5rem; padding: 0.2rem 0.5rem; border-radius: 6px; font-family: var(--font-sans);
+  font-size: 11px; color: var(--muted); background: var(--btn); border: 1px solid var(--line-strong); opacity: 0; transition: opacity 0.15s;
+}
+.prose pre:hover .copy, .prose pre .copy:focus-visible { opacity: 1; }
+.prose .table-wrap { border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+.prose table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+.prose th { text-align: left; font-weight: 600; background: var(--side); color: var(--fg); }
+.prose th, .prose td { padding: 0.55rem 0.85rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+.prose tr:last-child td { border-bottom: 0; }
+.prose blockquote { border-radius: 12px; padding: 0.85rem 1rem; border: 1px solid var(--info-line); background: var(--info-bg); }
+.prose blockquote.warning { border-color: var(--warn-line); background: var(--warn-bg); }
+.prose blockquote .callout-title { display: flex; align-items: center; gap: 0.4rem; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.2rem; }
+.prose blockquote.warning .callout-title { color: var(--warn); }
+.prose blockquote p { margin: 0; }
+.prose img { border-radius: 12px; border: 1px solid var(--line); }
+.prose hr { border-color: var(--line); margin: 2rem 0; }
