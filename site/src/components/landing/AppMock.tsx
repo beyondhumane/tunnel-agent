@@ -52,7 +52,7 @@ export function AppMock() {
       </div>
       <div className="flex h-[440px] text-left sm:h-[460px]">
         <aside className="flex w-14 shrink-0 flex-col border-r border-line bg-side p-2 sm:w-48">
-          <div className="flex items-center gap-2 px-1.5 pt-1 pb-4 text-[13px]">
+          <div className="flex items-center justify-center gap-2 px-1.5 pt-1 pb-4 text-[13px] sm:justify-start">
             <LogoMark className="size-5 shrink-0" />
             <span className="hidden sm:inline">
               <b>Tunnel</b> Agent
@@ -73,7 +73,7 @@ export function AppMock() {
                     setAuto(false);
                   }}
                   aria-pressed={active}
-                  className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-[13px] transition-colors duration-300 ${
+                  className={`flex items-center justify-center gap-2.5 rounded-lg px-2 py-1.5 text-[13px] sm:justify-start transition-colors duration-300 ${
                     active ? 'bg-accent text-white' : 'text-fg enabled:hover:bg-btn-hover disabled:opacity-60'
                   }`}
                 >

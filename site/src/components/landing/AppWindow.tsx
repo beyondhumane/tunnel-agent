@@ -68,7 +68,7 @@ export function AppWindow({ view, onView }: { view: WindowView; onView: (v: Wind
       </div>
       <div className="flex h-[560px]">
         <aside className="flex w-14 shrink-0 flex-col border-r border-line bg-side sm:w-52">
-          <div className="flex items-center justify-between px-3 pt-3 pb-3 text-[14px]">
+          <div className="flex items-center justify-center px-3 pt-3 pb-3 text-[14px] sm:justify-between">
             <span className="flex items-center gap-2">
               <LogoMark className="size-5 shrink-0" />
               <span className="hidden sm:inline">
@@ -86,7 +86,7 @@ export function AppWindow({ view, onView }: { view: WindowView; onView: (v: Wind
                   type="button"
                   onClick={() => onView(id)}
                   aria-pressed={active}
-                  className={`flex items-center gap-3 rounded-lg px-2.5 py-1.5 text-[13.5px] transition-colors duration-200 ${
+                  className={`flex items-center justify-center gap-3 rounded-lg px-2.5 py-1.5 text-[13.5px] sm:justify-start transition-colors duration-200 ${
                     active ? 'bg-accent text-white' : 'hover:bg-btn-hover'
                   }`}
                 >
