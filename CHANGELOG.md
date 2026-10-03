@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.1.11] - 2026-10-02
+
 ### Fixed
 
 - **Quota "authentication token is unavailable" with newer CLIProxyAPI auth files** (`OAuthTokenDetector`, `QuotaFetchService`): CLIProxyAPI now names token files `{provider}-{id}-{email}[-{plan}].json` (e.g. `claude-f9c692a7-me@example.com.json`), so the Claude and Codex quota readers, which looked for `{provider}-{email}*.json`, no longer found the token of a signed-in account. Token files are now matched by their JSON `email` field (falling back to the exact legacy filename), the plan badge is read from both filename formats, an account whose email is a prefix of another's (`a@x.com` / `a@x.com.au`) no longer also matches the other one's file when disabling or removing it, and a file without an access token no longer stops the search.
@@ -1090,6 +1092,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Engine always reads version from binary at startup (never trusts cached value)
 - Update notification triggers reactively from `StateChanged` rather than at a fixed startup point
 
+[1.1.11]: https://github.com/Villoh/tunnel-agent/compare/v1.1.10...v1.1.11
 [1.1.10]: https://github.com/Villoh/tunnel-agent/compare/v1.1.9...v1.1.10
 [1.1.9]: https://github.com/Villoh/tunnel-agent/compare/v1.1.8...v1.1.9
 [1.1.8]: https://github.com/Villoh/tunnel-agent/compare/v1.1.7...v1.1.8
