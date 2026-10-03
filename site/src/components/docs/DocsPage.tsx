@@ -3,7 +3,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Markdown, outline } from './Markdown';
 import { DOC_GROUPS, DOCS } from '@/lib/docs';
 import { docPath } from '@/lib/router';
-import { pageMeta } from '@/lib/seo';
 import { REPO_URL, url } from '@/lib/site';
 
 function Sidebar({ slug }: { slug: string }) {
@@ -46,7 +45,6 @@ export function DocsPage({ slug }: { slug: string }) {
   const [current, setCurrent] = useState('');
 
   useEffect(() => {
-    document.title = pageMeta({ view: 'docs', slug }).title;
     setMenu(false);
   }, [slug]);
 

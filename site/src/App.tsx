@@ -3,10 +3,16 @@ import { Navbar } from './components/Navbar';
 import { DocsPage } from './components/docs/DocsPage';
 import { Landing } from './components/landing/Landing';
 import { NotFound } from './components/NotFound';
+import { useEffect } from 'react';
 import { RouterProvider, useRoute } from './lib/router';
+import { pageMeta } from './lib/seo';
 
 function Page() {
   const route = useRoute();
+  const { title } = pageMeta(route);
+  useEffect(() => {
+    document.title = title;
+  }, [title]);
   if (route.view === 'docs') return <DocsPage slug={route.slug} />;
   if (route.view === 'missing') return <NotFound />;
   return <Landing />;

@@ -12,7 +12,10 @@ export function useTheme() {
   const [pref, setPref] = useState<ThemePref>('system');
 
   useEffect(() => {
-    const saved = localStorage.getItem(KEY);
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(KEY);
+    } catch {}
     if (saved === 'light' || saved === 'dark') setPref(saved);
   }, []);
 
@@ -27,8 +30,10 @@ export function useTheme() {
 
   const set = useCallback((next: ThemePref) => {
     setPref(next);
-    if (next === 'system') localStorage.removeItem(KEY);
-    else localStorage.setItem(KEY, next);
+    try {
+      if (next === 'system') localStorage.removeItem(KEY);
+      else localStorage.setItem(KEY, next);
+    } catch {}
   }, []);
 
   return [pref, set] as const;
