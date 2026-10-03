@@ -1,14 +1,15 @@
 import type { ReactNode } from 'react';
 import type { Brand } from './brands';
+import { Reveal } from '@/lib/motion';
 
 export function Section({ id, eyebrow, title, intro, children }: { id?: string; eyebrow: string; title: ReactNode; intro?: ReactNode; children: ReactNode }) {
   return (
     <section id={id} className="mx-auto max-w-7xl scroll-mt-20 px-4 py-20 sm:px-6 sm:py-24">
-      <div className="max-w-2xl">
+      <Reveal className="max-w-2xl">
         <p className="text-xs font-semibold tracking-[0.14em] text-accent uppercase">{eyebrow}</p>
         <h2 className="mt-3 text-3xl font-semibold tracking-tight text-balance sm:text-4xl">{title}</h2>
         {intro && <p className="mt-4 text-base leading-relaxed text-pretty text-muted sm:text-lg">{intro}</p>}
-      </div>
+      </Reveal>
       <div className="mt-12">{children}</div>
     </section>
   );

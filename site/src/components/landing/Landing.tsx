@@ -1,11 +1,12 @@
 import {
   Activity, ArrowRight, BookOpen, Bot, Coins, Download, GitBranch, Globe, KeyRound, Languages, MonitorCheck, Power, RefreshCw, ShieldCheck,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppleIcon, GitHubIcon, LinuxIcon, WindowsIcon } from '../icons';
 import { AppMock } from './AppMock';
 import { AGENTS, IDES, PROVIDERS } from './brands';
-import { BrandIcon, Card, Endpoint, Section } from './ui';
+import { BrandIcon, Endpoint, Section } from './ui';
+import { Reveal, Tilt, reducedMotion, spotlight, useInView } from '@/lib/motion';
 import { docPath } from '@/lib/router';
 import { DOWNLOADS, RELEASES_URL, REPO_URL, url, VERSION } from '@/lib/site';
 import agentsShot from '../../../../assets/agents.png';
@@ -18,9 +19,9 @@ import perplexityShot from '../../../../assets/providers-perplexity.png';
 import quotaShot from '../../../../assets/quota.png';
 
 const btnPrimary =
-  'inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent-hover';
+  'group inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover hover:shadow-lg hover:shadow-accent/30 active:translate-y-0';
 const btnSecondary =
-  'inline-flex items-center justify-center gap-2 rounded-lg border border-line-strong bg-btn px-4 py-2.5 text-sm font-medium text-fg transition-colors hover:bg-btn-hover';
+  'group inline-flex items-center justify-center gap-2 rounded-lg border border-line-strong bg-btn px-4 py-2.5 text-sm font-medium text-fg transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/50 hover:bg-btn-hover active:translate-y-0';
 
 export function Landing() {
   return (
@@ -41,42 +42,54 @@ export function Landing() {
 function Hero() {
   return (
     <section className="relative overflow-hidden">
-      <div className="bg-grid pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)]" aria-hidden="true" />
-      <div className="pointer-events-none absolute -top-40 left-1/2 h-[480px] w-[900px] -translate-x-1/2 rounded-full bg-accent/15 blur-3xl" aria-hidden="true" />
+      <div className="bg-grid animate-grid-pan pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)]" aria-hidden="true" />
+      <div className="animate-float pointer-events-none absolute -top-40 left-1/2 h-[480px] w-[900px] -translate-x-1/2 rounded-full bg-accent/15 blur-3xl" aria-hidden="true" />
+      <div
+        className="animate-float pointer-events-none absolute top-40 left-[80%] h-[320px] w-[420px] -translate-x-1/2 rounded-full bg-accent/10 blur-3xl [animation-delay:-8s] [animation-duration:20s]"
+        aria-hidden="true"
+      />
       <div className="relative mx-auto grid max-w-7xl items-center gap-12 px-4 pt-14 pb-20 sm:px-6 lg:grid-cols-[1fr_1.1fr] lg:pt-20">
         <div>
           <a
             href={RELEASES_URL}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-full border border-line bg-card py-1 pr-3 pl-1 text-xs text-muted transition-colors hover:text-fg"
+            className="group animate-rise inline-flex items-center gap-2 rounded-full border border-line bg-card py-1 pr-3 pl-1 text-xs text-muted transition-colors hover:border-accent/40 hover:text-fg"
           >
-            <span className="rounded-full bg-accent-soft px-2 py-0.5 font-mono font-semibold text-accent">v{VERSION}</span>
+            <span className="relative rounded-full bg-accent-soft px-2 py-0.5 font-mono font-semibold text-accent">v{VERSION}</span>
             Now on Windows, macOS and Linux
-            <ArrowRight className="size-3" />
+            <ArrowRight className="size-3 transition-transform group-hover:translate-x-0.5" />
           </a>
-          <h1 className="mt-6 text-4xl font-semibold tracking-tight text-balance sm:text-5xl lg:text-[3.6rem] lg:leading-[1.05]">
-            One local endpoint for every <span className="text-accent">AI subscription</span> you already pay for.
+          <h1 className="animate-rise mt-6 text-4xl font-semibold tracking-tight text-balance [animation-delay:80ms] sm:text-5xl lg:text-[3.6rem] lg:leading-[1.05]">
+            One local endpoint for every{' '}
+            <span className="animate-shimmer bg-[linear-gradient(90deg,var(--accent),var(--accent-hover),#8DB6FC,var(--accent-hover),var(--accent))] bg-[length:200%_100%] bg-clip-text text-transparent">
+              AI subscription
+            </span>{' '}
+            you already pay for.
           </h1>
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-pretty text-muted">
+          <p className="animate-rise mt-6 max-w-xl text-lg leading-relaxed text-pretty text-muted [animation-delay:160ms]">
             Tunnel Agent is a desktop control center for CLIProxyAPI, Perplexity WebUI Scraper and 9Router. Sign in to your providers, start the
             proxy with one click and point Claude Code, Codex, OpenCode or any coding agent at <Endpoint>localhost</Endpoint>.
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="animate-rise mt-8 flex flex-wrap gap-3 [animation-delay:240ms]">
             <a href={url('/#download')} className={btnPrimary}>
-              <Download className="size-4" /> Download for free
+              <Download className="size-4 transition-transform group-hover:translate-y-0.5" /> Download for free
             </a>
             <a href={url(docPath('quick-start'))} className={btnSecondary}>
-              <BookOpen className="size-4" /> Quick start
+              <BookOpen className="size-4 transition-transform group-hover:-rotate-6" /> Quick start
             </a>
           </div>
-          <p className="mt-6 flex items-center gap-3 text-xs text-faint">
+          <p className="animate-rise mt-6 flex items-center gap-3 text-xs text-faint [animation-delay:320ms]">
             <WindowsIcon className="size-3.5" /> <AppleIcon className="size-3.5" /> <LinuxIcon className="size-3.5" />
             <span>Open source · MIT · No account required</span>
           </p>
         </div>
-        <div className="relative">
-          <AppMock />
+        <div className="animate-rise relative [animation-delay:200ms] [animation-duration:1.1s]">
+          <div className="animate-float-y">
+            <Tilt>
+              <AppMock />
+            </Tilt>
+          </div>
           <p className="mt-3 text-center text-xs text-faint">Interactive preview — click the sidebar. It follows the site theme, just like the app.</p>
         </div>
       </div>
@@ -84,17 +97,27 @@ function Hero() {
   );
 }
 
+const STRIP = [...PROVIDERS.filter((p) => p.icon), ...IDES];
+
 function Strip() {
   return (
     <div className="border-y border-line bg-side">
-      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-8 gap-y-4 px-4 py-6 sm:px-6">
-        <span className="text-xs font-medium tracking-wide text-faint uppercase">Works with</span>
-        {[...PROVIDERS.filter((p) => p.icon), ...IDES].map((p) => (
-          <span key={p.name} className="flex items-center gap-2 text-sm text-muted">
-            <BrandIcon brand={p} className="size-5" />
-            {p.name}
-          </span>
-        ))}
+      <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-6 sm:px-6">
+        <span className="shrink-0 text-xs font-medium tracking-wide text-faint uppercase">Works with</span>
+        <div className="marquee-mask group min-w-0 flex-1 overflow-hidden">
+          <div className="animate-marquee flex w-max group-hover:[animation-play-state:paused]">
+            {[0, 1].map((copy) => (
+              <ul key={copy} className="flex shrink-0 items-center gap-10 pr-10" aria-hidden={copy === 1 || undefined}>
+                {STRIP.map((p) => (
+                  <li key={p.name} className="flex items-center gap-2 text-sm whitespace-nowrap text-muted transition-colors hover:text-fg">
+                    <BrandIcon brand={p} className="size-5" />
+                    {p.name}
+                  </li>
+                ))}
+              </ul>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -120,15 +143,15 @@ function Features() {
       title="Everything between your subscriptions and your agents."
       intro="Proxies like CLIProxyAPI are powerful but live in config files and terminals. Tunnel Agent gives them a native window."
     >
-      <div className="grid gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
-        {FEATURES.map(({ Icon, title, text }) => (
-          <div key={title} className="bg-card p-6">
-            <span className="grid size-9 place-items-center rounded-lg bg-accent-soft text-accent">
+      <div onPointerMove={spotlight} className="grid gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
+        {FEATURES.map(({ Icon, title, text }, i) => (
+          <Reveal key={title} delay={(i % 3) * 90} className="spot group bg-card p-6">
+            <span className="grid size-9 place-items-center rounded-lg bg-accent-soft text-accent transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6">
               <Icon className="size-4.5" />
             </span>
             <h3 className="mt-4 font-semibold">{title}</h3>
             <p className="mt-1.5 text-sm leading-relaxed text-muted">{text}</p>
-          </div>
+          </Reveal>
         ))}
       </div>
     </Section>
@@ -167,12 +190,16 @@ function Engines() {
       title="Three engines, one window."
       intro="Run any combination side by side. Each engine gets its own port, logs, version and settings."
     >
-      <div className="grid gap-4 lg:grid-cols-3">
-        {ENGINES.map((e) => (
-          <Card key={e.name} className="flex flex-col p-6">
+      <div onPointerMove={spotlight} className="grid gap-4 lg:grid-cols-3">
+        {ENGINES.map((e, i) => (
+          <Reveal
+            key={e.name}
+            delay={i * 110}
+            className="spot flex flex-col rounded-2xl border border-line bg-card p-6 transition-[translate,border-color,box-shadow] duration-300 hover:-translate-y-1 hover:border-accent/40 hover:shadow-xl hover:shadow-accent/10"
+          >
             <div className="flex items-center justify-between">
               <span className="flex items-center gap-2 text-xs font-medium text-ok">
-                <span className="size-1.5 rounded-full bg-ok" /> Running
+                <Pulse /> Running
               </span>
               <Endpoint>127.0.0.1:{e.port}</Endpoint>
             </div>
@@ -193,7 +220,7 @@ function Engines() {
             >
               <GitHubIcon className="size-3.5" /> {e.repo}
             </a>
-          </Card>
+          </Reveal>
         ))}
       </div>
     </Section>
@@ -213,40 +240,54 @@ function HowItWorks() {
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24">
         <div className="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:items-center">
           <div>
-            <p className="text-xs font-semibold tracking-[0.14em] text-accent uppercase">How it works</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">From download to first prompt in minutes.</h2>
-            <ol className="mt-10 space-y-6">
-              {STEPS.map((s) => (
-                <li key={s.n} className="flex gap-4">
-                  <span className="font-mono text-sm text-accent">{s.n}</span>
+            <Reveal>
+              <p className="text-xs font-semibold tracking-[0.14em] text-accent uppercase">How it works</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">From download to first prompt in minutes.</h2>
+            </Reveal>
+            <ol className="relative mt-10 space-y-6">
+              <span className="absolute top-2 bottom-2 left-[11px] w-px bg-line" aria-hidden="true" />
+              {STEPS.map((s, i) => (
+                <Reveal as="li" key={s.n} delay={i * 140} className="group relative flex gap-4">
+                  <span className="relative grid size-6 shrink-0 place-items-center rounded-full border border-accent/40 bg-side font-mono text-[10px] text-accent transition-colors duration-300 group-hover:bg-accent group-hover:text-white">
+                    {i + 1}
+                  </span>
                   <div>
                     <h3 className="font-semibold">{s.title}</h3>
                     <p className="mt-1 text-sm leading-relaxed text-muted">{s.text}</p>
                   </div>
-                </li>
+                </Reveal>
               ))}
             </ol>
           </div>
-          <Card className="overflow-hidden">
+          <Reveal delay={150} className="overflow-hidden rounded-2xl border border-line bg-card shadow-xl shadow-accent/5">
             <div className="flex items-center gap-2 border-b border-line px-4 py-2.5 text-xs text-muted">
               <span className="size-2 rounded-full bg-err/70" /> <span className="size-2 rounded-full bg-warn/70" /> <span className="size-2 rounded-full bg-ok/70" />
               <span className="ml-2 font-mono">any OpenAI-compatible client</span>
             </div>
             <pre className="overflow-x-auto p-5 font-mono text-[13px] leading-relaxed">
               <code>
-                <span className="text-faint"># the endpoint Tunnel Agent starts for you</span>
-                {'\n'}
-                <span className="text-accent">export</span> OPENAI_BASE_URL=<span className="text-ok">http://127.0.0.1:8317/v1</span>
-                {'\n'}
-                <span className="text-accent">export</span> OPENAI_API_KEY=<span className="text-ok">&lt;key from Configuration&gt;</span>
-                {'\n\n'}
-                curl $OPENAI_BASE_URL/models \{'\n'}
-                {'  '}-H <span className="text-ok">"Authorization: Bearer $OPENAI_API_KEY"</span>
-                {'\n\n'}
-                <span className="text-faint"># or skip all of this: Agents → Configure</span>
+                <Line d={300}>
+                  <span className="text-faint"># the endpoint Tunnel Agent starts for you</span>
+                </Line>
+                <Line d={600}>
+                  <span className="text-accent">export</span> OPENAI_BASE_URL=<span className="text-ok">http://127.0.0.1:8317/v1</span>
+                </Line>
+                <Line d={900}>
+                  <span className="text-accent">export</span> OPENAI_API_KEY=<span className="text-ok">&lt;key from Configuration&gt;</span>
+                </Line>
+                <Line d={1100}> </Line>
+                <Line d={1300}>curl $OPENAI_BASE_URL/models \</Line>
+                <Line d={1500}>
+                  {'  '}-H <span className="text-ok">"Authorization: Bearer $OPENAI_API_KEY"</span>
+                </Line>
+                <Line d={1700}> </Line>
+                <Line d={1900}>
+                  <span className="text-faint"># or skip all of this: Agents → Configure</span>
+                  <span className="animate-caret ml-1 inline-block h-[1.1em] w-[0.55em] translate-y-[0.2em] bg-accent" aria-hidden="true" />
+                </Line>
               </code>
             </pre>
-          </Card>
+          </Reveal>
         </div>
       </div>
     </section>
@@ -261,22 +302,30 @@ function Agents() {
       title="Your favourite CLI, on any model you have access to."
       intro="Tunnel Agent detects installed agents, backs up their config and writes the local endpoint, model and key. Restore the original whenever you want."
     >
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {AGENTS.map((a) => (
-          <Card key={a.name} className="flex items-center gap-3 p-4">
-            <BrandIcon brand={a} className="size-8" />
+      <div onPointerMove={spotlight} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {AGENTS.map((a, i) => (
+          <Reveal
+            key={a.name}
+            delay={(i % 4) * 80}
+            className="spot group flex items-center gap-3 rounded-2xl border border-line bg-card p-4 transition-[translate,border-color] duration-300 hover:-translate-y-0.5 hover:border-accent/40"
+          >
+            <span className="transition-transform duration-300 group-hover:scale-110 group-hover:rotate-[-4deg]">
+              <BrandIcon brand={a} className="size-8" />
+            </span>
             <div className="min-w-0">
               <p className="font-medium">{a.name}</p>
               <p className="truncate font-mono text-[11px] text-muted">{a.config}</p>
             </div>
-          </Card>
+          </Reveal>
         ))}
-        <a
-          href={url(docPath('agents'))}
-          className="flex items-center justify-between gap-3 rounded-2xl border border-dashed border-line-strong p-4 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
-        >
-          Anything that speaks the OpenAI or Anthropic API <ArrowRight className="size-4 shrink-0" />
-        </a>
+        <Reveal delay={(AGENTS.length % 4) * 80} className="flex">
+          <a
+            href={url(docPath('agents'))}
+            className="group flex flex-1 items-center justify-between gap-3 rounded-2xl border border-dashed border-line-strong p-4 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
+          >
+            Anything that speaks the OpenAI or Anthropic API <ArrowRight className="size-4 shrink-0 transition-transform group-hover:translate-x-1" />
+          </a>
+        </Reveal>
       </div>
     </Section>
   );
@@ -293,9 +342,29 @@ const SHOTS = [
   { id: 'logs', label: 'Logs', src: logsShot },
 ];
 
+const TOUR_MS = 5000;
+
 function Tour() {
   const [active, setActive] = useState(SHOTS[0].id);
+  const [auto, setAuto] = useState(true);
+  const [paused, setPaused] = useState(false);
+  const [ref, inView] = useInView<HTMLDivElement>();
   const shot = SHOTS.find((s) => s.id === active)!;
+  const playing = auto && inView && !paused;
+
+  useEffect(() => {
+    if (reducedMotion()) setAuto(false);
+  }, []);
+
+  useEffect(() => {
+    if (!playing) return;
+    const t = setTimeout(() => {
+      const i = SHOTS.findIndex((s) => s.id === active);
+      setActive(SHOTS[(i + 1) % SHOTS.length].id);
+    }, TOUR_MS);
+    return () => clearTimeout(t);
+  }, [playing, active]);
+
   return (
     <Section id="tour" eyebrow="Tour" title="See the real thing." intro="Screenshots from the desktop app in dark mode.">
       <div className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0" role="tablist" aria-label="Screenshots">
@@ -305,22 +374,40 @@ function Tour() {
             type="button"
             role="tab"
             aria-selected={s.id === active}
-            onClick={() => setActive(s.id)}
-            className={`shrink-0 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+            onClick={() => {
+              setActive(s.id);
+              setAuto(false);
+            }}
+            className={`relative shrink-0 overflow-hidden rounded-lg px-3 py-1.5 text-sm transition-colors duration-300 ${
               s.id === active ? 'bg-accent text-white' : 'text-muted hover:bg-btn-hover hover:text-fg'
             }`}
           >
             {s.label}
+            {s.id === active && auto && (
+              <span
+                key={active}
+                className="animate-progress absolute inset-x-0 bottom-0 h-0.5 origin-left bg-white/70"
+                style={{ '--dur': `${TOUR_MS}ms`, animationPlayState: playing ? 'running' : 'paused' } as React.CSSProperties}
+                aria-hidden="true"
+              />
+            )}
           </button>
         ))}
       </div>
-      <div className="mt-6 flex justify-center rounded-2xl border border-line bg-side p-3 sm:p-8">
+      <div
+        ref={ref}
+        onPointerEnter={() => setPaused(true)}
+        onPointerLeave={() => setPaused(false)}
+        className="relative mt-6 flex justify-center overflow-hidden rounded-2xl border border-line bg-side p-3 sm:p-8"
+      >
+        <div className="pointer-events-none absolute -bottom-32 left-1/2 h-64 w-[70%] -translate-x-1/2 rounded-full bg-accent/15 blur-3xl" aria-hidden="true" />
         <img
+          key={shot.id}
           src={shot.src}
           alt={`Tunnel Agent ${shot.label} view`}
           width={820}
           height={620}
-          className="h-auto w-full max-w-[820px] rounded-xl border border-line-strong shadow-2xl"
+          className="animate-view relative h-auto w-full max-w-[820px] rounded-xl border border-line-strong shadow-2xl"
         />
       </div>
     </Section>
@@ -337,16 +424,20 @@ function Downloads() {
   return (
     <section id="download" className="scroll-mt-20 border-t border-line bg-side">
       <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24">
-        <div className="max-w-2xl">
+        <Reveal className="max-w-2xl">
           <p className="text-xs font-semibold tracking-[0.14em] text-accent uppercase">Download</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">Get Tunnel Agent {VERSION}</h2>
           <p className="mt-4 text-lg text-muted">Free and open source. Pick your platform — every build is published on GitHub Releases.</p>
-        </div>
-        <div className="mt-12 grid gap-4 lg:grid-cols-3">
-          {OS.map(({ id, name, Icon, note }) => (
-            <Card key={id} className="p-6">
+        </Reveal>
+        <div onPointerMove={spotlight} className="mt-12 grid gap-4 lg:grid-cols-3">
+          {OS.map(({ id, name, Icon, note }, n) => (
+            <Reveal
+              key={id}
+              delay={n * 110}
+              className="spot group/os rounded-2xl border border-line bg-card p-6 transition-[translate,border-color,box-shadow] duration-300 hover:-translate-y-1 hover:border-accent/40 hover:shadow-xl hover:shadow-accent/10"
+            >
               <div className="flex items-center gap-3">
-                <span className="grid size-10 place-items-center rounded-xl bg-accent-soft text-accent">
+                <span className="grid size-10 place-items-center rounded-xl bg-accent-soft text-accent transition-transform duration-300 group-hover/os:scale-110">
                   <Icon className="size-5" />
                 </span>
                 <div>
@@ -359,19 +450,19 @@ function Downloads() {
                   <li key={d.href}>
                     <a
                       href={d.href}
-                      className={`flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors ${
-                        i === 0 ? 'bg-accent text-white hover:bg-accent-hover' : 'border border-line hover:bg-btn-hover'
+                      className={`group flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-all duration-200 hover:translate-x-0.5 ${
+                        i === 0 ? 'bg-accent text-white hover:bg-accent-hover hover:shadow-md hover:shadow-accent/30' : 'border border-line hover:border-accent/40 hover:bg-btn-hover'
                       }`}
                     >
                       <span className="font-medium">{d.label}</span>
                       <span className={`flex items-center gap-2 text-xs ${i === 0 ? 'text-white/80' : 'text-muted'}`}>
-                        {d.detail} <Download className="size-3.5" />
+                        {d.detail} <Download className="size-3.5 transition-transform group-hover:translate-y-0.5" />
                       </span>
                     </a>
                   </li>
                 ))}
               </ul>
-            </Card>
+            </Reveal>
           ))}
         </div>
         <p className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted">
@@ -390,26 +481,44 @@ function Downloads() {
 function Cta() {
   return (
     <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-24">
-      <div className="relative overflow-hidden rounded-3xl bg-accent px-6 py-14 text-center text-white sm:px-12">
-        <div className="bg-grid pointer-events-none absolute inset-0 opacity-20 [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]" aria-hidden="true" />
+      <Reveal className="animate-gradient relative overflow-hidden rounded-3xl bg-[linear-gradient(120deg,var(--accent),var(--accent-hover),#0F55C8,var(--accent))] bg-[length:300%_300%] px-6 py-14 text-center text-white sm:px-12">
+        <div className="bg-grid animate-grid-pan pointer-events-none absolute inset-0 opacity-20 [mask-image:radial-gradient(ellipse_at_center,black,transparent_75%)]" aria-hidden="true" />
+        <div className="animate-float pointer-events-none absolute -top-24 left-1/2 h-64 w-[600px] rounded-full bg-white/15 blur-3xl" aria-hidden="true" />
         <h2 className="relative text-3xl font-semibold tracking-tight text-balance sm:text-4xl">Read the docs, open an issue, send a PR.</h2>
         <p className="relative mx-auto mt-4 max-w-xl text-white/80">
           Guides for every screen, troubleshooting for common errors and everything you need to contribute.
         </p>
         <div className="relative mt-8 flex flex-wrap justify-center gap-3">
-          <a href={url(docPath())} className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-[#146CF9] hover:bg-white/90">
+          <a href={url(docPath())} className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-sm font-medium text-[#146CF9] transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/90 hover:shadow-lg">
             <BookOpen className="size-4" /> Documentation
           </a>
           <a
             href={REPO_URL}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg border border-white/30 px-4 py-2.5 text-sm font-medium text-white hover:bg-white/10"
+            className="inline-flex items-center gap-2 rounded-lg border border-white/30 px-4 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/10"
           >
             <Globe className="size-4" /> Star on GitHub
           </a>
         </div>
-      </div>
+      </Reveal>
     </section>
+  );
+}
+
+function Pulse() {
+  return (
+    <span className="relative flex size-1.5">
+      <span className="animate-ping-soft absolute inset-0 rounded-full bg-ok" />
+      <span className="relative size-1.5 rounded-full bg-ok" />
+    </span>
+  );
+}
+
+function Line({ d, children }: { d: number; children: React.ReactNode }) {
+  return (
+    <span className="type-line block" style={{ '--d': `${d}ms` } as React.CSSProperties}>
+      {children}
+    </span>
   );
 }

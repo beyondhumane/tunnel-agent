@@ -13,9 +13,12 @@ function Page() {
   useEffect(() => {
     document.title = title;
   }, [title]);
-  if (route.view === 'docs') return <DocsPage slug={route.slug} />;
-  if (route.view === 'missing') return <NotFound />;
-  return <Landing />;
+  const view = route.view === 'docs' ? <DocsPage slug={route.slug} /> : route.view === 'missing' ? <NotFound /> : <Landing />;
+  return (
+    <div key={route.view === 'docs' ? `docs/${route.slug}` : route.view} className="animate-view">
+      {view}
+    </div>
+  );
 }
 
 export function Site({ path }: { path: string }) {

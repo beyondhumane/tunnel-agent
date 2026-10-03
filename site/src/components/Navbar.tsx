@@ -37,7 +37,7 @@ export function Navbar() {
       }`}
     >
       <nav className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6">
-        <a href={url('/')} className="shrink-0 text-fg" aria-label="Tunnel Agent home">
+        <a href={url('/')} className="shrink-0 text-fg transition-transform duration-300 hover:scale-[1.03]" aria-label="Tunnel Agent home">
           <Wordmark />
         </a>
         <div className="hidden flex-1 items-center gap-1 md:flex">
@@ -72,7 +72,7 @@ export function Navbar() {
         </div>
       </nav>
       {open && (
-        <div className="border-t border-line px-4 py-3 md:hidden">
+        <div className="animate-view border-t border-line px-4 py-3 md:hidden">
           <div className="flex flex-col gap-1">
             {[...LINKS, { label: 'Docs', href: docPath() }].map((l) => (
               <a key={l.href} href={url(l.href)} className="rounded-lg px-3 py-2 text-sm text-fg hover:bg-btn-hover">
