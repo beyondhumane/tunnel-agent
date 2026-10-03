@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1254 1254" role="img" aria-label="Tunnel Agent">
+  <defs>
+    <linearGradient id="ta-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1F74FF"/>
+      <stop offset="1" stop-color="#0659F6"/>
+    </linearGradient>
+    <linearGradient id="ta-fg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FBF8F2"/>
+      <stop offset="1" stop-color="#F3EBDD"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="1238" height="1238" rx="268" fill="url(#ta-bg)"/>
+  <path fill="url(#ta-fg)" d="M285 572A342 342 0 0 1 969 572V928C969 942 958 949 946 943L831 879C822 874 817 866 817 856V582A190 190 0 0 0 437 582V856C437 866 432 874 423 879L308 943C296 949 285 942 285 928Z"/>
+  <path fill="url(#ta-fg)" d="M678 646C668 641 640 642 620 648C578 661 540 685 526 715C514 742 530 770 545 795C566 832 556 873 500 915C430 966 330 1032 245 1085C214 1104 224 1132 258 1132H628C648 1132 660 1122 670 1104C724 1010 752 940 748 878C744 812 700 780 640 740C612 721 600 708 604 694C610 676 644 658 672 652C680 650 682 648 678 646Z"/>
+</svg>
