@@ -37,16 +37,25 @@ const routes = server.paths();
 for (const p of routes) page(p, `${p.replace(/^\//, "")}index.html`);
 page("/404/", "404.html");
 
-const lastmod = (rel) => {
+const lastmod = (...sources) => {
   try {
-    return execFileSync("git", ["log", "-1", "--format=%cs", "--", rel], { cwd: root, encoding: "utf8" }).trim();
+    const options = { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] };
+    if (execFileSync("git", ["rev-parse", "--is-shallow-repository"], options).trim() !== "false") return "";
+    return execFileSync("git", ["log", "-1", "--format=%cs", "--", ...sources], options).trim();
   } catch {
     return "";
   }
 };
 const entries = [
   ...LANGS.flatMap((lang) => [
-    { loc: abs(localizedPath("/", lang)), mod: lastmod(`site/src/i18n/${lang}.ts`) },
+    {
+      loc: abs(localizedPath("/", lang)),
+      mod: lastmod(
+        "site/src", "site/index.html", "site/vite.config.ts", "assets",
+        "src/TunnelAgent.Avalonia/Assets", "src/TunnelAgent.Avalonia/TunnelAgent.Avalonia.csproj",
+        ...LANGS.filter((other) => other !== lang).map((other) => `:(exclude)site/src/i18n/${other}.ts`),
+      ),
+    },
     ...docsFor(lang).map((p) => ({ loc: abs(localizedPath(docPath(p.slug), lang)), mod: lastmod(p.path) })),
   ]),
 ];

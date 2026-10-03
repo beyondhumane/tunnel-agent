@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && vite build --ssr src/entry-server.tsx --outDir dist-ssr && node scripts/prerender.mjs && npm run test:site",
-    "test:site": "node scripts/check-site.mjs",
+    "test:site": "node --test scripts/prerender.test.mjs && node scripts/check-site.mjs",
     "preview": "vite preview",
     "lint": "tsc --noEmit -p ."
   },
