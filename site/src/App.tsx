@@ -6,22 +6,41 @@ import { NotFound } from './components/NotFound';
 import { useEffect } from 'react';
 import { RouterProvider, useRoute } from './lib/router';
 import { pageMeta } from './lib/seo';
+import { I18nProvider, useI18n, type Lang } from './lib/i18n';
 
 function Page() {
   const route = useRoute();
-  const { title } = pageMeta(route);
+  const { lang } = useI18n();
+  const { title } = pageMeta(route, lang);
   useEffect(() => {
     document.title = title;
   }, [title]);
-  if (route.view === 'docs') return <DocsPage slug={route.slug} />;
-  if (route.view === 'missing') return <NotFound />;
-  return <Landing />;
+  const view = route.view === 'docs' ? <DocsPage slug={route.slug} /> : route.view === 'missing' ? <NotFound /> : <Landing />;
+  return (
+    <div key={route.view === 'docs' ? `docs/${route.slug}` : route.view} className={route.view === 'docs' ? undefined : 'animate-view'}>
+      {view}
+    </div>
+  );
 }
 
-export function Site({ path }: { path: string }) {
+function Backdrop() {
   return (
+    <div className="backdrop" aria-hidden="true">
+      <div className="aurora -top-[20vh] -left-[10vw] h-[60vh] w-[55vw] bg-accent/20" />
+      <div className="aurora top-[35vh] -right-[15vw] h-[55vh] w-[45vw] bg-accent-hover/15 [animation-delay:-9s] [animation-duration:34s]" />
+      <div className="aurora -bottom-[25vh] left-[20vw] h-[50vh] w-[50vw] bg-accent/15 [animation-delay:-18s] [animation-duration:40s]" />
+      <div className="dots" />
+      <div className="grain" />
+    </div>
+  );
+}
+
+export function Site({ path, lang = 'en' }: { path: string; lang?: Lang }) {
+  return (
+    <I18nProvider lang={lang}>
     <RouterProvider path={path}>
-      <div className="flex min-h-dvh flex-col">
+      <div className="relative flex min-h-dvh flex-col">
+        <Backdrop />
         <Navbar />
         <main className="flex-1">
           <Page />
@@ -29,5 +48,6 @@ export function Site({ path }: { path: string }) {
         <Footer />
       </div>
     </RouterProvider>
+    </I18nProvider>
   );
 }

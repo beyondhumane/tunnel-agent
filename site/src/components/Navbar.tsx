@@ -2,19 +2,21 @@ import { Menu, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { GitHubIcon } from './icons';
 import { Wordmark } from './Logo';
+import { LangToggle } from './LangToggle';
 import { ThemeToggle } from './ThemeToggle';
+import { useI18n } from '@/lib/i18n';
 import { docPath, useRoute } from '@/lib/router';
 import { REPO_URL, url } from '@/lib/site';
 
-const LINKS = [
-  { label: 'Features', href: '/#features' },
-  { label: 'Engines', href: '/#engines' },
-  { label: 'Agents', href: '/#agents' },
-  { label: 'Download', href: '/#download' },
-];
-
 export function Navbar() {
   const route = useRoute();
+  const { t } = useI18n();
+  const LINKS = [
+    { label: t.nav.features, href: '/#features' },
+    { label: t.nav.engines, href: '/#engines' },
+    { label: t.nav.agents, href: '/#agents' },
+    { label: t.nav.download, href: '/#download' },
+  ];
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -37,7 +39,7 @@ export function Navbar() {
       }`}
     >
       <nav className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6">
-        <a href={url('/')} className="shrink-0 text-fg" aria-label="Tunnel Agent home">
+        <a href={url('/')} className="flex shrink-0 items-center text-fg transition-transform duration-300 hover:scale-[1.03]" aria-label={t.nav.home}>
           <Wordmark />
         </a>
         <div className="hidden flex-1 items-center gap-1 md:flex">
@@ -47,10 +49,11 @@ export function Navbar() {
             </a>
           ))}
           <a href={url(docPath())} className={`${link} ${docs ? 'bg-accent-soft text-accent hover:bg-accent-soft hover:text-accent' : ''}`}>
-            Docs
+            {t.nav.docs}
           </a>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <LangToggle />
           <ThemeToggle />
           <a
             href={REPO_URL}
@@ -63,7 +66,7 @@ export function Navbar() {
           <button
             type="button"
             className="grid size-9 place-items-center rounded-lg text-muted hover:bg-btn-hover hover:text-fg md:hidden"
-            aria-label={open ? 'Close menu' : 'Open menu'}
+            aria-label={open ? t.nav.close : t.nav.open}
             aria-expanded={open}
             onClick={() => setOpen((o) => !o)}
           >
@@ -72,9 +75,9 @@ export function Navbar() {
         </div>
       </nav>
       {open && (
-        <div className="border-t border-line px-4 py-3 md:hidden">
+        <div className="animate-view border-t border-line px-4 py-3 md:hidden">
           <div className="flex flex-col gap-1">
-            {[...LINKS, { label: 'Docs', href: docPath() }].map((l) => (
+            {[...LINKS, { label: t.nav.docs, href: docPath() }].map((l) => (
               <a key={l.href} href={url(l.href)} className="rounded-lg px-3 py-2 text-sm text-fg hover:bg-btn-hover">
                 {l.label}
               </a>
