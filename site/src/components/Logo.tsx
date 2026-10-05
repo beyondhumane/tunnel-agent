@@ -8,7 +8,7 @@ const ROAD =
 export function LogoMark({ className = 'size-7' }: { className?: string }) {
   const id = useId().replace(/:/g, '');
   return (
-    <svg viewBox="0 0 1254 1254" className={className} aria-hidden="true">
+    <svg viewBox="0 0 1254 1254" width="24" height="24" className={className} aria-hidden="true">
       <defs>
         <linearGradient id={`${id}bg`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#1F74FF" />
