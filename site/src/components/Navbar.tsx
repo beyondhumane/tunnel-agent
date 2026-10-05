@@ -54,7 +54,9 @@ export function Navbar() {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <LangToggle />
-          <ThemeToggle />
+          <div className="hidden sm:block">
+            <ThemeToggle />
+          </div>
           <a
             href={REPO_URL}
             target="_blank"
@@ -85,6 +87,10 @@ export function Navbar() {
             <a href={REPO_URL} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-fg hover:bg-btn-hover">
               <GitHubIcon /> GitHub
             </a>
+            <div className="flex items-center justify-between px-3 py-1 text-sm text-fg sm:hidden">
+              {t.theme.label}
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       )}
