@@ -42,7 +42,7 @@ export function Navbar() {
         <a href={url('/')} className="flex shrink-0 items-center text-fg transition-transform duration-300 hover:scale-[1.03]" aria-label={t.nav.home}>
           <Wordmark />
         </a>
-        <div className="hidden flex-1 items-center gap-1 md:flex">
+        <div className="hidden flex-1 items-center gap-1 lg:flex">
           {LINKS.map((l) => (
             <a key={l.href} href={url(l.href)} className={link}>
               {l.label}
@@ -67,7 +67,7 @@ export function Navbar() {
           </a>
           <button
             type="button"
-            className="grid size-9 place-items-center rounded-lg text-muted hover:bg-btn-hover hover:text-fg md:hidden"
+            className="grid size-9 place-items-center rounded-lg text-muted hover:bg-btn-hover hover:text-fg lg:hidden"
             aria-label={open ? t.nav.close : t.nav.open}
             aria-expanded={open}
             onClick={() => setOpen((o) => !o)}
@@ -77,7 +77,7 @@ export function Navbar() {
         </div>
       </nav>
       {open && (
-        <div className="animate-view border-t border-line px-4 py-3 md:hidden">
+        <div className="animate-view border-t border-line px-4 py-3 lg:hidden">
           <div className="flex flex-col gap-1">
             {[...LINKS, { label: t.nav.docs, href: docPath() }].map((l) => (
               <a key={l.href} href={url(l.href)} className="rounded-lg px-3 py-2 text-sm text-fg hover:bg-btn-hover">
