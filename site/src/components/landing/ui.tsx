@@ -36,7 +36,7 @@ export function BrandIcon({ brand, className = 'size-5' }: { brand: Brand; class
       </span>
     );
   }
-  return <img src={brand.icon} alt="" className={`${className} ${brand.mono === 'dark' ? 'dark:invert' : ''}`} loading="lazy" decoding="async" />;
+  return <img src={brand.icon} alt="" width="20" height="20" className={`${className} ${brand.mono === 'dark' ? 'dark:invert' : ''}`} loading="lazy" decoding="async" />;
 }
 
 export function Endpoint({ children }: { children: ReactNode }) {
