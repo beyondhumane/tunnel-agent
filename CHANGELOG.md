@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Nix flake** (`flake.nix`, `packaging/nix/`): `nix run github:beyondhumane/tunnel-agent` builds and starts the app from source on Linux and macOS, `nix profile install` installs it with a desktop entry and icon, and `nix develop` opens a shell with the .NET 10 SDK, Node.js, and Avalonia's native libraries. The package runs the test suite during the build, disables in-app updates, and makes launch at login start the Nix wrapper instead of the bare binary (`TUNNEL_AGENT_EXECUTABLE`). A new Nix workflow rebuilds the NuGet lockfile (`packaging/nix/deps.json`) on every pull request and commits it after merge, so Dependabot bumps keep the flake building.
+- **Nix flake** (`flake.nix`, `packaging/nix/`): `nix run github:beyondhumane/tunnel-agent` builds and starts the app from source on Linux and macOS, `nix profile install` installs it with a desktop entry and icon, and `nix develop` opens a shell with the .NET 10 SDK, Node.js, and Avalonia's native libraries. The package runs the test suite during the build, disables in-app updates, makes launch at login start the Nix wrapper instead of the bare binary (`TUNNEL_AGENT_EXECUTABLE`), and keeps the wrapper's Nix library paths out of the programs the app starts, so opening folders through the host's `xdg-open` works (`WrapperEnvironment`). A new Nix workflow rebuilds the NuGet lockfile (`packaging/nix/deps.json`) on every pull request and commits it after merge, so Dependabot bumps keep the flake building.
 
 ## [1.1.12] - 2026-10-03
 

@@ -15,6 +15,8 @@ internal class Program
         // and exits early when launched by the Velopack installer, not by the user.
         VelopackApp.Build().Run();
 
+        WrapperEnvironment.RestoreHostLibraryPath();
+
         TunnelAgent.Infrastructure.Services.UserEnvironmentService.Initialize();
 
         using var singleInstance = new SingleInstanceService();

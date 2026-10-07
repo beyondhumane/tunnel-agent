@@ -171,9 +171,10 @@ What the package does differently from the release builds:
 
 - The version comes from `<Version>` in `TunnelAgent.Avalonia.csproj`, so `scripts/bump-version.sh` covers it.
 - The test project runs in the check phase with a throwaway `$HOME`.
-- Velopack sees no installed package, so in-app updates are off; users update through Nix.
+- Velopack sees no installed package, so the app never downloads updates (**Check** just reports that it is up to date); users update through Nix.
 - The wrapper sets `TUNNEL_AGENT_EXECUTABLE` to itself, and launch at login writes that path instead of the unwrapped apphost (which can't find the .NET runtime or native libraries on its own). After an upgrade, toggle launch at login once so it points at the new store path.
 - `xdg-open` and Node.js (for 9Router) are appended to `PATH` as fallbacks.
+- `bin/tunnel-agent` records the caller's `LD_LIBRARY_PATH` in `TUNNEL_AGENT_HOST_LD_LIBRARY_PATH` before the inner wrapper adds the Nix libraries, and the app restores it at startup for the processes it starts. Otherwise host programs such as `kde-open5` would load Nix's libX11 and fail with `GLIBC_2.38 not found`. Run `bin/tunnel-agent`, not `bin/TunnelAgent`.
 - Engine binaries are still downloaded at runtime into `~/.local/share/TunnelAgent/engine/`. On NixOS, a dynamically linked engine binary needs [nix-ld](https://github.com/nix-community/nix-ld) to start.
 
 ### Updating `deps.json`

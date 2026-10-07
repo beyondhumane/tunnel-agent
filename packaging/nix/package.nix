@@ -100,9 +100,13 @@ buildDotnetModule (finalAttrs: {
       $out/share/icons/hicolor/256x256/apps/tunnel-agent.png
   '';
 
-  # The wrapper in $out/bin is only created during preFixup.
+  # The wrapper in $out/bin is only created during preFixup. The outer
+  # wrapper records the caller's LD_LIBRARY_PATH before the inner one adds
+  # Nix libraries, so the app can hand the original to the host programs it
+  # starts (xdg-open, kde-open, engines).
   postFixup = ''
-    ln -s TunnelAgent $out/bin/tunnel-agent
+    makeWrapper $out/bin/TunnelAgent $out/bin/tunnel-agent \
+      --run 'export TUNNEL_AGENT_HOST_LD_LIBRARY_PATH="''${LD_LIBRARY_PATH-}"'
   '';
 
   passthru = { inherit runtimeLibs; };
