@@ -199,7 +199,19 @@ scoop bucket add villoh https://github.com/Villoh/scoop-bucket
 scoop install tunnel-agent
 ```
 
-**Requirements:** Windows 10 or later. 9Router also needs [Node.js 18+](https://nodejs.org/) on PATH.
+**Nix (Linux, Apple Silicon macOS):** the repository is a flake that builds Tunnel Agent from source.
+
+```bash
+# Run without installing
+nix run github:beyondhumane/tunnel-agent
+
+# Install into your profile (adds a desktop entry and icon on Linux)
+nix profile install github:beyondhumane/tunnel-agent
+```
+
+On NixOS or Home Manager, add the flake as an input and put `inputs.tunnel-agent.packages.${pkgs.stdenv.hostPlatform.system}.default` in `environment.systemPackages` or `home.packages`. In-app updates are off for Nix builds; update with `nix profile upgrade tunnel-agent` or `nix flake update tunnel-agent`. The flake has only been run on x86_64 Linux so far.
+
+**Requirements:** Windows 10 or later. 9Router also needs [Node.js 18+](https://nodejs.org/) on PATH (the Nix package falls back to its own Node.js when none is found).
 
 ## Usage
 
@@ -222,6 +234,8 @@ dotnet run --project src/TunnelAgent.Avalonia/TunnelAgent.Avalonia.csproj
 ```
 
 > If the app is already running, stop it before rebuilding; Windows locks `TunnelAgent.exe` while it is open.
+
+With Nix, `nix develop` opens a shell with the .NET 10 SDK, Node.js, and the native libraries Avalonia loads on Linux, so the `dotnet` commands above work unchanged. See [docs/build.md](docs/build.md#nix) for building the flake and updating its NuGet lockfile.
 
 ## Credits
 

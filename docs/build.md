@@ -144,3 +144,47 @@ dotnet publish ... -p:DebugType=None -p:DebugSymbols=false
 | `-p:EnableCompressionInSingleFile=true` | Compress bundled DLLs inside the exe. **Only valid with `--self-contained true`** — fails with `NETSDK1176` otherwise. |
 | `-p:DebugType=None` | Do not produce a `.pdb` debug symbols file. Fine for distribution. |
 | `-p:DebugSymbols=false` | Companion to `DebugType=None`. Together they ensure no symbol files are emitted. |
+
+---
+
+## Nix
+
+The repository is a flake (`flake.nix`); the package itself lives in `packaging/nix/package.nix`.
+
+| Output | What it is |
+|---|---|
+| `packages.<system>.default` / `tunnel-agent` | Framework-dependent build against nixpkgs' .NET 10 runtime, wrapped so Avalonia finds its native libraries |
+| `apps.<system>.default` | `nix run` entry point (`bin/tunnel-agent`) |
+| `devShells.<system>.default` | .NET 10 SDK, Node.js, `nixfmt`, and `LD_LIBRARY_PATH` set for `dotnet run` on Linux |
+| `formatter.<system>` | `nixfmt` |
+
+Systems: `x86_64-linux`, `aarch64-linux`, `aarch64-darwin` (nixpkgs unstable dropped `x86_64-darwin`). Only `x86_64-linux` is built in CI.
+
+```bash
+nix build                 # result/bin/tunnel-agent
+nix run                   # build and start
+nix develop               # then: dotnet run --project src/TunnelAgent.Avalonia/TunnelAgent.Avalonia.csproj
+nix fmt flake.nix packaging/nix/package.nix
+```
+
+What the package does differently from the release builds:
+
+- The version comes from `<Version>` in `TunnelAgent.Avalonia.csproj`, so `scripts/bump-version.sh` covers it.
+- The test project runs in the check phase with a throwaway `$HOME`.
+- Velopack sees no installed package, so the app never downloads updates (**Check** just reports that it is up to date); users update through Nix.
+- The wrapper sets `TUNNEL_AGENT_EXECUTABLE` to itself, and launch at login writes that path instead of the unwrapped apphost (which can't find the .NET runtime or native libraries on its own). After an upgrade, toggle launch at login once so it points at the new store path.
+- `xdg-open` and Node.js (for 9Router) are appended to `PATH` as fallbacks.
+- `bin/tunnel-agent` records the caller's `LD_LIBRARY_PATH` in `TUNNEL_AGENT_HOST_LD_LIBRARY_PATH` before the inner wrapper adds the Nix libraries, and the app restores it at startup for the processes it starts. Otherwise host programs such as `kde-open5` would load Nix's libX11 and fail with `GLIBC_2.38 not found`. Run `bin/tunnel-agent`, not `bin/TunnelAgent`.
+- Engine binaries are still downloaded at runtime into `~/.local/share/TunnelAgent/engine/`. On NixOS, a dynamically linked engine binary needs [nix-ld](https://github.com/nix-community/nix-ld) to start.
+
+### Updating `deps.json`
+
+`packaging/nix/deps.json` pins every NuGet package (including the runtime-specific ones for every system). Regenerate it after changing any `PackageReference`:
+
+```bash
+nix build .#tunnel-agent.fetch-deps -o fetch-deps
+./fetch-deps packaging/nix/deps.json
+rm fetch-deps
+```
+
+The Nix workflow (`.github/workflows/nix.yml`) does this on every pull request that touches a `.csproj`, the solution, or the Nix files, then builds the flake. On pushes to `main` it also commits the regenerated file as `chore(nix): update deps.json [skip ci]`, so Dependabot PRs don't need a manual update.

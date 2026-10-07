@@ -34,3 +34,8 @@ openspec/
 .worktrees/
 # Local Pi runtime state
 .atl/
+
+# Nix build outputs
+result
+result-*
+fetch-deps

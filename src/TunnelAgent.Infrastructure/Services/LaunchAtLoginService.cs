@@ -107,9 +107,16 @@ public sealed class LaunchAtLoginService : ILaunchAtLoginService
             .ConfigureAwait(false);
     }
 
-    private static string GetExecutablePath()
+    // Packagers that start the app through a wrapper script (e.g. the Nix flake)
+    // point this at the wrapper so login items keep its environment.
+    internal const string ExecutableOverrideVariable = "TUNNEL_AGENT_EXECUTABLE";
+
+    internal static string GetExecutablePath()
     {
-        var path = Environment.ProcessPath;
+        var path = Environment.GetEnvironmentVariable(ExecutableOverrideVariable);
+        if (!string.IsNullOrWhiteSpace(path) && File.Exists(path)) return path;
+
+        path = Environment.ProcessPath;
         if (!string.IsNullOrWhiteSpace(path) && File.Exists(path)) return path;
 
         path = Process.GetCurrentProcess().MainModule?.FileName;
