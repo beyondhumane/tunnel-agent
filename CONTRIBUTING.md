@@ -9,12 +9,14 @@
    dotnet restore
    dotnet run
    ```
+   With Nix, run `nix develop` first to get the SDK.
 
 ## Pull Requests
 
 - Keep PRs focused: one feature or fix per PR.
 - Match existing code style and naming conventions.
 - Update the README if your change affects documented behaviour.
+- Changing NuGet packages also changes `packaging/nix/deps.json`, the Nix flake's lockfile. You don't have to regenerate it: the Nix workflow rebuilds it on every pull request and commits it after merge. To do it locally, see [docs/build.md](docs/build.md#nix).
 - All CI checks must pass before a PR can be merged.
 - Add a bullet in `CHANGELOG.md` under `## [Unreleased]` for every behavioural change:
   - `### Added` — new feature

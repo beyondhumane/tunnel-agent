@@ -1,0 +1,65 @@
+name: Nix
+
+# packaging/nix/deps.json pins every NuGet package for the flake. Dependabot
+# bumps the .csproj files without touching it, so pull requests rebuild it in
+# place to prove the flake still builds, and pushes to main commit it back.
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "**/*.csproj"
+      - "**/TunnelAgent.slnx"
+      - "flake.nix"
+      - "flake.lock"
+      - "packaging/nix/**"
+      - ".github/workflows/nix.yml"
+  pull_request:
+    branches: [main, master]
+    paths:
+      - "**/*.csproj"
+      - "**/TunnelAgent.slnx"
+      - "flake.nix"
+      - "flake.lock"
+      - "packaging/nix/**"
+      - ".github/workflows/nix.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: nix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build flake
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check formatting
+        run: nix fmt -- --check flake.nix packaging/nix/package.nix
+
+      - name: Regenerate deps.json
+        run: |
+          nix build .#tunnel-agent.fetch-deps -o fetch-deps
+          ./fetch-deps packaging/nix/deps.json
+          rm fetch-deps
+
+      - name: Build
+        run: nix build -L .#tunnel-agent
+
+      - name: Commit deps.json
+        if: github.event_name != 'pull_request'
+        run: |
+          git diff --quiet -- packaging/nix/deps.json && exit 0
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packaging/nix/deps.json
+          git commit -m "chore(nix): update deps.json [skip ci]"
+          git push origin "HEAD:${{ github.ref_name }}"
